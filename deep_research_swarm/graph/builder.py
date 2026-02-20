@@ -29,8 +29,11 @@ def build_graph(settings: Settings) -> StateGraph:
         model=settings.opus_model,
         max_concurrent=settings.max_concurrent_requests,
     )
-    # sonnet_caller reserved for V2 (searcher/extractor agents)
-    # sonnet_caller = AgentCaller(api_key=..., model=settings.sonnet_model, ...)
+    sonnet_caller = AgentCaller(
+        api_key=settings.anthropic_api_key,
+        model=settings.sonnet_model,
+        max_concurrent=settings.max_concurrent_requests,
+    )
 
     # Backend configs for searcher
     backend_configs: dict[str, dict] = {
@@ -42,6 +45,37 @@ def build_graph(settings: Settings) -> StateGraph:
         backend_configs["tavily"] = {"api_key": settings.tavily_api_key}
 
     # --- Node functions (closures over callers) ---
+
+    async def health_check_node(state: ResearchState) -> dict:
+        """Verify search backends are reachable before dispatching."""
+        import deep_research_swarm.backends.searxng  # noqa: F401
+
+        if settings.exa_api_key:
+            import deep_research_swarm.backends.exa  # noqa: F401
+        if settings.tavily_api_key:
+            import deep_research_swarm.backends.tavily  # noqa: F401
+
+        from deep_research_swarm.backends import get_backend
+
+        requested = state.get("search_backends", ["searxng"])
+        healthy: list[str] = []
+
+        for name in requested:
+            try:
+                kwargs = backend_configs.get(name, {})
+                backend = get_backend(name, **kwargs)
+                if await backend.health_check():
+                    healthy.append(name)
+            except Exception:
+                pass
+
+        if not healthy:
+            raise RuntimeError(
+                f"No healthy backends. Requested: {requested}. "
+                "Check that SearXNG is running and API keys are valid."
+            )
+
+        return {"search_backends": healthy}
 
     async def plan_node(state: ResearchState) -> dict:
         return await plan(state, opus_caller)
@@ -128,7 +162,7 @@ def build_graph(settings: Settings) -> StateGraph:
         return await synthesize(state, opus_caller)
 
     async def critique_node(state: ResearchState) -> dict:
-        return await critique(state, opus_caller)
+        return await critique(state, sonnet_caller)
 
     async def rollup_budget_node(state: ResearchState) -> dict:
         """Roll up token_usage list into totals for budget tracking."""
@@ -158,6 +192,7 @@ def build_graph(settings: Settings) -> StateGraph:
     graph = StateGraph(ResearchState)
 
     # Add nodes
+    graph.add_node("health_check", health_check_node)
     graph.add_node("plan", plan_node)
     graph.add_node("search", search_node)
     graph.add_node("extract", extract_node)
@@ -167,8 +202,9 @@ def build_graph(settings: Settings) -> StateGraph:
     graph.add_node("rollup_budget", rollup_budget_node)
     graph.add_node("report", report_node)
 
-    # Wire edges: linear pipeline with a critique -> plan loop
-    graph.set_entry_point("plan")
+    # Wire edges: health_check -> plan -> pipeline -> critique loop
+    graph.set_entry_point("health_check")
+    graph.add_edge("health_check", "plan")
     graph.add_edge("plan", "search")
     graph.add_edge("search", "extract")
     graph.add_edge("extract", "score")

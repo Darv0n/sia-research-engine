@@ -10,15 +10,21 @@ import yaml
 if TYPE_CHECKING:
     from deep_research_swarm.graph.state import ResearchState
 
-from deep_research_swarm.reporting.citations import build_bibliography
+from deep_research_swarm.reporting.citations import (
+    build_bibliography,
+    deduplicate_and_renumber,
+)
 from deep_research_swarm.reporting.heatmap import render_confidence_heatmap
 
 
 def render_report(state: "ResearchState") -> str:
     """Render a full Markdown research report from graph state."""
     research_question = state["research_question"]
-    section_drafts = state.get("section_drafts", [])
-    citations = state.get("citations", [])
+    raw_sections = state.get("section_drafts", [])
+    raw_citations = state.get("citations", [])
+
+    # Deduplicate and renumber citations for clean output
+    section_drafts, citations = deduplicate_and_renumber(raw_sections, raw_citations)
     research_gaps = state.get("research_gaps", [])
     iteration_history = state.get("iteration_history", [])
     total_cost = state.get("total_cost_usd", 0.0)

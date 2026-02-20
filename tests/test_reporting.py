@@ -8,7 +8,10 @@ from deep_research_swarm.contracts import (
     ResearchGap,
     SourceAuthority,
 )
-from deep_research_swarm.reporting.citations import build_bibliography
+from deep_research_swarm.reporting.citations import (
+    build_bibliography,
+    deduplicate_and_renumber,
+)
 from deep_research_swarm.reporting.heatmap import render_confidence_heatmap
 from deep_research_swarm.reporting.renderer import render_report
 
@@ -83,6 +86,20 @@ class TestCitations:
         assert "arxiv.org" in bib
 
     def test_deduplicates_by_url(self):
+        """Deduplication happens in deduplicate_and_renumber, not build_bibliography."""
+        from deep_research_swarm.contracts import Confidence, GraderScores, SectionDraft
+
+        sections = [
+            SectionDraft(
+                id="sec-001",
+                heading="Test",
+                content="Claim [1] and more [2].",
+                citation_ids=["[1]", "[2]"],
+                confidence_score=0.85,
+                confidence_level=Confidence.HIGH,
+                grader_scores=GraderScores(relevance=0.85, hallucination=0.9, quality=0.8),
+            )
+        ]
         cits = [
             Citation(
                 id="[1]",
@@ -90,7 +107,7 @@ class TestCitations:
                 title="A",
                 authority=SourceAuthority.UNKNOWN,
                 accessed="",
-                used_in_sections=[],
+                used_in_sections=["Test"],
             ),
             Citation(
                 id="[2]",
@@ -98,14 +115,124 @@ class TestCitations:
                 title="A duplicate",
                 authority=SourceAuthority.UNKNOWN,
                 accessed="",
-                used_in_sections=[],
+                used_in_sections=["Test"],
             ),
         ]
-        bib = build_bibliography(cits)
+        deduped_sections, deduped_cits = deduplicate_and_renumber(sections, cits)
+        bib = build_bibliography(deduped_cits)
         assert bib.count("example.com/a") == 1
+        assert len(deduped_cits) == 1
 
     def test_empty_citations(self):
         assert build_bibliography([]) == ""
+
+
+class TestDeduplicateAndRenumber:
+    """V2: Full citation deduplication and renumbering pipeline."""
+
+    def _make_section(self, sid, heading, content, cit_ids):
+        from deep_research_swarm.contracts import Confidence, GraderScores, SectionDraft
+
+        return SectionDraft(
+            id=sid,
+            heading=heading,
+            content=content,
+            citation_ids=cit_ids,
+            confidence_score=0.85,
+            confidence_level=Confidence.HIGH,
+            grader_scores=GraderScores(relevance=0.85, hallucination=0.9, quality=0.8),
+        )
+
+    def _make_citation(self, cid, url, title):
+        return Citation(
+            id=cid,
+            url=url,
+            title=title,
+            authority=SourceAuthority.INSTITUTIONAL,
+            accessed="",
+            used_in_sections=[],
+        )
+
+    def test_renumbers_sequentially(self):
+        sections = [
+            self._make_section("sec-1", "Intro", "Fact [1] and [2].", ["[1]", "[2]"]),
+        ]
+        cits = [
+            self._make_citation("[1]", "https://a.com", "A"),
+            self._make_citation("[2]", "https://b.com", "B"),
+        ]
+        new_secs, new_cits = deduplicate_and_renumber(sections, cits)
+        assert new_cits[0]["id"] == "[1]"
+        assert new_cits[1]["id"] == "[2]"
+        assert "[1]" in new_secs[0]["content"]
+        assert "[2]" in new_secs[0]["content"]
+
+    def test_dedup_merges_duplicate_urls(self):
+        sections = [
+            self._make_section("sec-1", "Intro", "Fact [1] and [2].", ["[1]", "[2]"]),
+        ]
+        cits = [
+            self._make_citation("[1]", "https://same.com", "Same A"),
+            self._make_citation("[2]", "https://same.com", "Same B"),
+        ]
+        new_secs, new_cits = deduplicate_and_renumber(sections, cits)
+        assert len(new_cits) == 1
+        # Both old refs should now point to [1]
+        assert new_secs[0]["content"].count("[1]") == 2
+        assert "[2]" not in new_secs[0]["content"]
+
+    def test_avoids_double_replacement_collision(self):
+        """[10] should not get partially matched when renumbering [1]."""
+        sections = [
+            self._make_section(
+                "sec-1",
+                "Intro",
+                "Cite [1] then [10].",
+                ["[1]", "[10]"],
+            ),
+        ]
+        cits = [
+            self._make_citation("[1]", "https://a.com", "A"),
+            self._make_citation("[10]", "https://b.com", "B"),
+        ]
+        new_secs, new_cits = deduplicate_and_renumber(sections, cits)
+        assert len(new_cits) == 2
+        content = new_secs[0]["content"]
+        # Both citations should be present as [1] and [2]
+        assert "[1]" in content
+        assert "[2]" in content
+
+    def test_empty_citations_passthrough(self):
+        from deep_research_swarm.contracts import Confidence, GraderScores, SectionDraft
+
+        sections = [
+            SectionDraft(
+                id="sec-1",
+                heading="Intro",
+                content="No citations here.",
+                citation_ids=[],
+                confidence_score=0.5,
+                confidence_level=Confidence.MEDIUM,
+                grader_scores=GraderScores(relevance=0.5, hallucination=1.0, quality=0.5),
+            )
+        ]
+        new_secs, new_cits = deduplicate_and_renumber(sections, [])
+        assert new_secs == sections
+        assert new_cits == []
+
+    def test_used_in_sections_merged(self):
+        sections = [
+            self._make_section("sec-1", "Intro", "Fact [1].", ["[1]"]),
+            self._make_section("sec-2", "Body", "More [2].", ["[2]"]),
+        ]
+        cits = [
+            self._make_citation("[1]", "https://same.com", "Same"),
+            self._make_citation("[2]", "https://same.com", "Same Dup"),
+        ]
+        _, new_cits = deduplicate_and_renumber(sections, cits)
+        assert len(new_cits) == 1
+        assert "Intro" in new_cits[0]["used_in_sections"]
+        assert "Body" in new_cits[0]["used_in_sections"]
 
 
 class TestHeatmap:

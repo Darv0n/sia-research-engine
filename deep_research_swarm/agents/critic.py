@@ -1,9 +1,17 @@
-"""Critic agent — quality grading with convergence detection."""
+"""Critic agent — three-grader chain with convergence detection.
+
+Three specialized graders evaluate distinct failure modes:
+- Relevance: Does the content answer the research question?
+- Hallucination: Are claims grounded in cited sources?
+- Quality: Is the writing clear, deep, and well-organized?
+"""
 
 from __future__ import annotations
 
+import asyncio
+
 from deep_research_swarm.agents.base import AgentCaller
-from deep_research_swarm.contracts import GraderScores, SectionDraft
+from deep_research_swarm.contracts import GraderScores, IterationRecord, SectionDraft
 from deep_research_swarm.graph.state import ResearchState
 from deep_research_swarm.scoring.confidence import (
     classify_confidence,
@@ -11,36 +19,82 @@ from deep_research_swarm.scoring.confidence import (
     summarize_confidence,
 )
 
-CRITIC_SYSTEM = """\
-You are a research quality critic. Evaluate each section of a research synthesis \
-for quality, relevance, and potential hallucination.
+# --- Three separate grader prompts ---
 
-For each section, provide scores from 0.0 to 1.0:
-- relevance: How well the section answers the research question (1.0 = perfectly relevant)
-- hallucination: Confidence claims are grounded in sources (1.0 = fully grounded)
-- quality: Overall writing quality, depth, and usefulness (1.0 = excellent)
+RELEVANCE_SYSTEM = """\
+You are a relevance grader. Evaluate how well each section answers \
+the research question. Score from 0.0 to 1.0.
 
-Output STRICT JSON (no markdown, no commentary):
-{
-  "evaluations": [
-    {
-      "section_id": "sec-xxx",
-      "relevance": 0.85,
-      "hallucination": 0.90,
-      "quality": 0.80
-    }
-  ]
-}
+1.0 = directly answers the question with depth
+0.7 = partially relevant but missing key aspects
+0.4 = tangentially related
+0.0 = completely off-topic
 
-Rules:
-- Be critical but fair. Most sections should score between 0.5 and 0.9.
-- Flag hallucination (low score) if claims lack citations or contradict sources.
-- Flag low quality if the section is superficial or poorly organized.
+Output STRICT JSON:
+{"scores": [{"section_id": "sec-xxx", "relevance": 0.85}]}
+"""
+
+HALLUCINATION_SYSTEM = """\
+You are a hallucination grader. Evaluate whether claims in each \
+section are grounded in the cited sources. Score from 0.0 to 1.0.
+
+1.0 = every claim has a citation and matches source content
+0.7 = most claims grounded, minor unsupported statements
+0.4 = significant unsupported claims
+0.0 = fabricated content with no source basis
+
+Check: Are [N] citation markers present? Do claims match what \
+sources would reasonably say? Flag speculation presented as fact.
+
+Output STRICT JSON:
+{"scores": [{"section_id": "sec-xxx", "hallucination": 0.90}]}
+"""
+
+QUALITY_SYSTEM = """\
+You are a writing quality grader. Evaluate clarity, depth, \
+organization, and usefulness of each section. Score from 0.0 to 1.0.
+
+1.0 = excellent: clear structure, sufficient depth, useful insights
+0.7 = good: readable but could be deeper or better organized
+0.4 = mediocre: superficial, poorly structured, or repetitive
+0.0 = unusable: incoherent or empty
+
+Output STRICT JSON:
+{"scores": [{"section_id": "sec-xxx", "quality": 0.80}]}
 """
 
 
+async def _grade_dimension(
+    caller: AgentCaller,
+    system: str,
+    sections_text: str,
+    research_question: str,
+    dimension: str,
+    agent_name: str,
+) -> tuple[dict[str, float], dict]:
+    """Run a single grader dimension. Returns (id->score, usage)."""
+    user_content = (
+        f"Research question: {research_question}\n\nSections to evaluate:\n{sections_text}"
+    )
+
+    data, usage = await caller.call_json(
+        system=system,
+        messages=[{"role": "user", "content": user_content}],
+        agent_name=agent_name,
+        max_tokens=1024,
+    )
+
+    scores_by_id: dict[str, float] = {}
+    for item in data.get("scores", []):
+        sid = item.get("section_id", "")
+        score = item.get(dimension, 0.5)
+        scores_by_id[sid] = score
+
+    return scores_by_id, usage
+
+
 async def critique(state: ResearchState, caller: AgentCaller) -> dict:
-    """Evaluate section drafts and determine convergence."""
+    """Three-grader chain: evaluate sections then determine convergence."""
     research_question = state["research_question"]
     section_drafts = state.get("section_drafts", [])
     current_iteration = state.get("current_iteration", 1)
@@ -54,41 +108,61 @@ async def critique(state: ResearchState, caller: AgentCaller) -> dict:
             "convergence_reason": "no_sections_to_evaluate",
         }
 
-    # Build section text for evaluation
+    # Build section text shared by all three graders
     sections_text = ""
     for sec in section_drafts:
         sections_text += (
             f"\n--- Section: {sec['heading']} (id: {sec['id']}) ---\n{sec['content']}\n"
         )
 
-    user_content = (
-        f"Research question: {research_question}\n\nSections to evaluate:\n{sections_text}"
+    # Run three graders in parallel
+    relevance_task = _grade_dimension(
+        caller,
+        RELEVANCE_SYSTEM,
+        sections_text,
+        research_question,
+        "relevance",
+        "critic_relevance",
+    )
+    hallucination_task = _grade_dimension(
+        caller,
+        HALLUCINATION_SYSTEM,
+        sections_text,
+        research_question,
+        "hallucination",
+        "critic_hallucination",
+    )
+    quality_task = _grade_dimension(
+        caller,
+        QUALITY_SYSTEM,
+        sections_text,
+        research_question,
+        "quality",
+        "critic_quality",
     )
 
-    data, usage = await caller.call_json(
-        system=CRITIC_SYSTEM,
-        messages=[{"role": "user", "content": user_content}],
-        agent_name="critic",
-        max_tokens=2048,
-    )
+    (
+        (rel_scores, rel_usage),
+        (hal_scores, hal_usage),
+        (qual_scores, qual_usage),
+    ) = await asyncio.gather(relevance_task, hallucination_task, quality_task)
 
-    # Update section drafts with grader scores
-    eval_by_id: dict[str, dict] = {}
-    for ev in data.get("evaluations", []):
-        eval_by_id[ev["section_id"]] = ev
+    all_usages = [rel_usage, hal_usage, qual_usage]
 
+    # Merge three dimensions into updated section drafts
     updated_sections: list[SectionDraft] = []
     for sec in section_drafts:
-        ev = eval_by_id.get(sec["id"])
-        if ev:
-            scores = GraderScores(
-                relevance=ev.get("relevance", sec["grader_scores"]["relevance"]),
-                hallucination=ev.get("hallucination", sec["grader_scores"]["hallucination"]),
-                quality=ev.get("quality", sec["grader_scores"]["quality"]),
-            )
-            avg = (scores["relevance"] + scores["hallucination"] + scores["quality"]) / 3.0
-            sec = SectionDraft(
-                id=sec["id"],
+        sid = sec["id"]
+        rel = rel_scores.get(sid, sec["grader_scores"]["relevance"])
+        hal = hal_scores.get(sid, sec["grader_scores"]["hallucination"])
+        qual = qual_scores.get(sid, sec["grader_scores"]["quality"])
+
+        scores = GraderScores(relevance=rel, hallucination=hal, quality=qual)
+        avg = (rel + hal + qual) / 3.0
+
+        updated_sections.append(
+            SectionDraft(
+                id=sid,
                 heading=sec["heading"],
                 content=sec["content"],
                 citation_ids=sec["citation_ids"],
@@ -96,7 +170,7 @@ async def critique(state: ResearchState, caller: AgentCaller) -> dict:
                 confidence_level=classify_confidence(avg),
                 grader_scores=scores,
             )
-        updated_sections.append(sec)
+        )
 
     # Determine convergence
     prev_history = state.get("iteration_history", [])
@@ -119,8 +193,6 @@ async def critique(state: ResearchState, caller: AgentCaller) -> dict:
     scores_list = [s["confidence_score"] for s in updated_sections]
     avg_conf = sum(scores_list) / len(scores_list) if scores_list else 0.0
 
-    from deep_research_swarm.contracts import IterationRecord
-
     iteration_record = IterationRecord(
         iteration=current_iteration,
         sub_queries_generated=len(state.get("sub_queries", [])),
@@ -129,7 +201,7 @@ async def critique(state: ResearchState, caller: AgentCaller) -> dict:
         sections_drafted=len(updated_sections),
         avg_confidence=round(avg_conf, 4),
         sections_by_confidence=summarize_confidence(updated_sections),
-        token_usage=[usage],
+        token_usage=all_usages,
         replan_reason=None if converged else reason,
     )
 
@@ -138,5 +210,5 @@ async def critique(state: ResearchState, caller: AgentCaller) -> dict:
         "converged": converged,
         "convergence_reason": reason,
         "iteration_history": [iteration_record],
-        "token_usage": [usage],
+        "token_usage": all_usages,
     }
