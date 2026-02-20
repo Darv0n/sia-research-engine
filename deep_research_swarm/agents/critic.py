@@ -11,7 +11,12 @@ from __future__ import annotations
 import asyncio
 
 from deep_research_swarm.agents.base import AgentCaller
-from deep_research_swarm.contracts import GraderScores, IterationRecord, SectionDraft
+from deep_research_swarm.contracts import (
+    GraderScores,
+    IterationRecord,
+    SectionConfidenceSnapshot,
+    SectionDraft,
+)
 from deep_research_swarm.graph.state import ResearchState
 from deep_research_swarm.scoring.confidence import (
     classify_confidence,
@@ -193,6 +198,19 @@ async def critique(state: ResearchState, caller: AgentCaller) -> dict:
     scores_list = [s["confidence_score"] for s in updated_sections]
     avg_conf = sum(scores_list) / len(scores_list) if scores_list else 0.0
 
+    section_snapshots = [
+        SectionConfidenceSnapshot(
+            heading=s["heading"],
+            confidence_score=s["confidence_score"],
+            confidence_level=(
+                s["confidence_level"].value
+                if hasattr(s["confidence_level"], "value")
+                else str(s["confidence_level"])
+            ),
+        )
+        for s in updated_sections
+    ]
+
     iteration_record = IterationRecord(
         iteration=current_iteration,
         sub_queries_generated=len(state.get("sub_queries", [])),
@@ -203,6 +221,7 @@ async def critique(state: ResearchState, caller: AgentCaller) -> dict:
         sections_by_confidence=summarize_confidence(updated_sections),
         token_usage=all_usages,
         replan_reason=None if converged else reason,
+        section_snapshots=section_snapshots,
     )
 
     return {

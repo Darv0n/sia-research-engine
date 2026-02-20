@@ -451,7 +451,7 @@ No inheritance required — the Protocol uses structural subtyping (PEP 544).
 
 - [x] **V1** — Core loop: single backend, single iteration, basic synthesis
 - [x] **V2** — Multi-iteration quality: three-grader chain, context-aware synthesis, query dedup, citation renumbering, sonnet cost optimization
-- [ ] **V3** — Reports & observability: streaming output, confidence trends, search caching, contradiction detection, source diversity scoring
+- [x] **V3** — Reports & observability: streaming output, confidence trends, search caching, contradiction detection, source diversity scoring
 - [ ] **V4** — Persistence & resume: SqliteSaver checkpointing, `--resume` CLI flag, PDF extraction, PostgresSaver option
 
 ## License

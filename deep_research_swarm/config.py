@@ -55,6 +55,22 @@ class Settings:
         default_factory=lambda: float(os.environ.get("CONVERGENCE_THRESHOLD", "0.05"))
     )
 
+    # Search cache
+    search_cache_ttl: int = field(
+        default_factory=lambda: int(os.environ.get("SEARCH_CACHE_TTL", "3600"))
+    )
+    search_cache_dir: str = field(
+        default_factory=lambda: os.environ.get("SEARCH_CACHE_DIR", ".cache/search")
+    )
+
+    # Checkpointing (V4)
+    checkpoint_db: str = field(
+        default_factory=lambda: os.environ.get("CHECKPOINT_DB", "checkpoints/research.db")
+    )
+    checkpoint_backend: str = field(
+        default_factory=lambda: os.environ.get("CHECKPOINT_BACKEND", "sqlite")
+    )
+
     def available_backends(self) -> list[str]:
         """Return list of backends that have valid configuration."""
         backends = ["searxng"]  # Always available (local)
@@ -73,6 +89,14 @@ class Settings:
             errors.append("MAX_ITERATIONS must be >= 1")
         if self.token_budget < 1000:
             errors.append("TOKEN_BUDGET must be >= 1000")
+        if self.checkpoint_backend not in ("sqlite", "none"):
+            if self.checkpoint_backend == "postgres":
+                errors.append("CHECKPOINT_BACKEND 'postgres' is not yet implemented")
+            else:
+                errors.append(
+                    f"CHECKPOINT_BACKEND must be 'sqlite' or 'none',"
+                    f" got '{self.checkpoint_backend}'"
+                )
         return errors
 
 

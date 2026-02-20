@@ -111,6 +111,29 @@ class TokenUsage(TypedDict):
     timestamp: str
 
 
+class Contradiction(TypedDict):
+    claim_a: str
+    source_a_url: str
+    claim_b: str
+    source_b_url: str
+    topic: str
+    severity: str  # "direct" | "nuanced" | "contextual"
+
+
+class DiversityMetrics(TypedDict):
+    unique_domains: int
+    total_documents: int
+    domain_concentration: float  # HHI: 0 (perfectly diverse) to 1 (single domain)
+    authority_distribution: dict[str, int]  # authority level -> count
+    diversity_score: float  # 0 (worst) to 1 (best), normalized from HHI
+
+
+class SectionConfidenceSnapshot(TypedDict):
+    heading: str
+    confidence_score: float
+    confidence_level: str  # Confidence enum value as string
+
+
 class IterationRecord(TypedDict):
     iteration: int
     sub_queries_generated: int
@@ -121,6 +144,7 @@ class IterationRecord(TypedDict):
     sections_by_confidence: dict[str, int]
     token_usage: list[TokenUsage]
     replan_reason: str | None
+    section_snapshots: list[SectionConfidenceSnapshot]
 
 
 # --- Protocols ---

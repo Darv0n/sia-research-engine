@@ -40,6 +40,11 @@ output/*
 *.db
 *.sqlite
 *.sqlite3
+checkpoints/
+.cache/
+
+# Claude Code
+.claude/
 
 # Linting
 .ruff_cache/

@@ -15,6 +15,7 @@ from deep_research_swarm.reporting.citations import (
     deduplicate_and_renumber,
 )
 from deep_research_swarm.reporting.heatmap import render_confidence_heatmap
+from deep_research_swarm.reporting.trends import render_confidence_trends
 
 
 def render_report(state: "ResearchState") -> str:
@@ -66,6 +67,52 @@ def render_report(state: "ResearchState") -> str:
         lines.append("")
         lines.append(render_confidence_heatmap(section_drafts))
         lines.append("")
+
+    # --- Confidence Trends ---
+    if len(iteration_history) >= 2:
+        trends_table = render_confidence_trends(iteration_history)
+        if trends_table:
+            lines.append("## Confidence Trends")
+            lines.append("")
+            lines.append(trends_table)
+            lines.append("")
+
+    # --- Source Diversity ---
+    diversity = state.get("diversity_metrics")
+    if diversity and diversity.get("total_documents", 0) > 0:
+        lines.append("## Source Diversity")
+        lines.append("")
+        lines.append(f"- **Unique domains**: {diversity['unique_domains']}")
+        lines.append(f"- **Total documents**: {diversity['total_documents']}")
+        lines.append(f"- **Diversity score**: {diversity['diversity_score']:.2f}")
+        lines.append(f"- **Domain concentration (HHI)**: {diversity['domain_concentration']:.4f}")
+        auth_dist = diversity.get("authority_distribution", {})
+        if auth_dist:
+            parts = [f"{k}: {v}" for k, v in sorted(auth_dist.items())]
+            lines.append(f"- **Authority mix**: {', '.join(parts)}")
+        lines.append("")
+
+    # --- Contradictions Detected ---
+    contradictions = state.get("contradictions", [])
+    if contradictions:
+        lines.append("## Contradictions Detected")
+        lines.append("")
+        for c in contradictions:
+            severity_label = {
+                "direct": "Direct conflict",
+                "nuanced": "Nuanced difference",
+                "contextual": "Contextual difference",
+            }.get(c["severity"], c["severity"])
+            lines.append(f"### {c['topic']}")
+            lines.append("")
+            lines.append(f"**Severity**: {severity_label}")
+            lines.append(f"- **Claim A**: {c['claim_a']}")
+            if c.get("source_a_url"):
+                lines.append(f"  - Source: {c['source_a_url']}")
+            lines.append(f"- **Claim B**: {c['claim_b']}")
+            if c.get("source_b_url"):
+                lines.append(f"  - Source: {c['source_b_url']}")
+            lines.append("")
 
     # --- Research Gaps ---
     if research_gaps:

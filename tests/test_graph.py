@@ -40,3 +40,21 @@ class TestGraphCompilation:
 
         graph = build_graph(settings)
         assert graph is not None
+
+    @patch("deep_research_swarm.graph.builder.AgentCaller")
+    def test_graph_compiles_with_checkpointer(self, mock_caller_cls):
+        """Graph should compile when given a checkpointer."""
+        from langgraph.checkpoint.memory import InMemorySaver
+
+        from deep_research_swarm.config import Settings
+        from deep_research_swarm.graph.builder import build_graph
+
+        settings = Settings(
+            anthropic_api_key="test-key",
+            searxng_url="http://localhost:8080",
+        )
+        mock_caller_cls.return_value = MagicMock()
+
+        checkpointer = InMemorySaver()
+        graph = build_graph(settings, checkpointer=checkpointer)
+        assert graph is not None

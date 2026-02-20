@@ -12,6 +12,7 @@ from deep_research_swarm.agents.base import AgentCaller
 from deep_research_swarm.contracts import (
     Citation,
     Confidence,
+    Contradiction,
     GraderScores,
     ResearchGap,
     ScoredDocument,
@@ -212,6 +213,27 @@ def _build_citations(
     return section_drafts, all_citations, research_gaps
 
 
+def _build_contradiction_context(contradictions: list[Contradiction]) -> str:
+    """Build a summary of detected contradictions for the synthesizer."""
+    if not contradictions:
+        return ""
+
+    parts = ["\n=== DETECTED CONTRADICTIONS ==="]
+    parts.append("Address these contradictions in your synthesis:")
+    for i, c in enumerate(contradictions, 1):
+        severity_label = {
+            "direct": "DIRECT CONFLICT",
+            "nuanced": "NUANCED DIFFERENCE",
+            "contextual": "CONTEXTUAL DIFFERENCE",
+        }.get(c["severity"], c["severity"])
+        parts.append(
+            f"\n{i}. [{severity_label}] {c['topic']}\n"
+            f"   Claim A: {c['claim_a']}\n"
+            f"   Claim B: {c['claim_b']}"
+        )
+    return "\n".join(parts)
+
+
 async def synthesize(state: ResearchState, caller: AgentCaller) -> dict:
     """Synthesize scored documents into section drafts with citations.
 
@@ -223,6 +245,7 @@ async def synthesize(state: ResearchState, caller: AgentCaller) -> dict:
     current_iteration = state.get("current_iteration", 1)
     prev_sections = state.get("section_drafts", [])
     prev_gaps = state.get("research_gaps", [])
+    contradictions = state.get("contradictions", [])
 
     if not scored_docs:
         return {
@@ -251,6 +274,11 @@ async def synthesize(state: ResearchState, caller: AgentCaller) -> dict:
     if is_refinement:
         prev_context = _build_previous_context(prev_sections, prev_gaps)
         user_content += f"{prev_context}\n\n"
+
+    # Include contradiction context if available
+    contradiction_context = _build_contradiction_context(contradictions)
+    if contradiction_context:
+        user_content += f"{contradiction_context}\n\n"
 
     user_content += f"Sources ({len(top_docs)} documents):\n{sources_text}"
 

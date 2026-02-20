@@ -7,6 +7,8 @@ from typing import Annotated, TypedDict
 
 from deep_research_swarm.contracts import (
     Citation,
+    Contradiction,
+    DiversityMetrics,
     ExtractedContent,
     IterationRecord,
     ResearchGap,
@@ -41,6 +43,11 @@ def _replace_list(existing: list, new: list) -> list:
     return new
 
 
+def _replace_dict(existing: dict, new: dict) -> dict:
+    """Replace-last-write for dict fields."""
+    return new
+
+
 # --- Graph State ---
 
 
@@ -61,8 +68,12 @@ class ResearchState(TypedDict):
 
     # Scoring + Synthesis (replace each iteration — these are the "current" view)
     scored_documents: Annotated[list[ScoredDocument], _replace_list]
+    diversity_metrics: Annotated[DiversityMetrics, _replace_dict]
     section_drafts: Annotated[list[SectionDraft], _replace_list]
     citations: Annotated[list[Citation], _replace_list]
+
+    # Contradiction detection
+    contradictions: Annotated[list[Contradiction], _replace_list]
 
     # Critique
     research_gaps: Annotated[list[ResearchGap], _replace_list]

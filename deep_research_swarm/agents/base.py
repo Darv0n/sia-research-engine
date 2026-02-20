@@ -143,12 +143,17 @@ class AgentCaller:
         # Try to extract JSON from response (handles ```json blocks)
         cleaned = text.strip()
         if cleaned.startswith("```"):
+            # Find the closing fence and discard everything after it
             lines = cleaned.split("\n")
-            # Remove first and last lines (``` markers)
+            # Remove opening fence line (```json or ```)
             lines = lines[1:]
-            if lines and lines[-1].strip() == "```":
-                lines = lines[:-1]
-            cleaned = "\n".join(lines)
+            # Find the closing ``` and take only content before it
+            json_lines = []
+            for line in lines:
+                if line.strip() == "```":
+                    break
+                json_lines.append(line)
+            cleaned = "\n".join(json_lines)
 
         try:
             data = json.loads(cleaned)

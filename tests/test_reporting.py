@@ -34,6 +34,7 @@ class TestRenderer:
                     sections_by_confidence={"HIGH": 1, "MEDIUM": 1, "LOW": 0},
                     token_usage=[],
                     replan_reason=None,
+                    section_snapshots=[],
                 )
             ],
             "total_cost_usd": 0.05,
