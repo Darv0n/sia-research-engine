@@ -17,7 +17,6 @@ from deep_research_swarm.contracts import (
     TokenUsage,
 )
 
-
 # --- Scalar reducers (last-write-wins) ---
 
 

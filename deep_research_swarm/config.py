@@ -32,20 +32,14 @@ class Settings:
     )
 
     # Models
-    opus_model: str = field(
-        default_factory=lambda: os.environ.get("OPUS_MODEL", "claude-opus-4-6")
-    )
+    opus_model: str = field(default_factory=lambda: os.environ.get("OPUS_MODEL", "claude-opus-4-6"))
     sonnet_model: str = field(
         default_factory=lambda: os.environ.get("SONNET_MODEL", "claude-sonnet-4-6")
     )
 
     # Limits
-    max_iterations: int = field(
-        default_factory=lambda: int(os.environ.get("MAX_ITERATIONS", "3"))
-    )
-    token_budget: int = field(
-        default_factory=lambda: int(os.environ.get("TOKEN_BUDGET", "200000"))
-    )
+    max_iterations: int = field(default_factory=lambda: int(os.environ.get("MAX_ITERATIONS", "3")))
+    token_budget: int = field(default_factory=lambda: int(os.environ.get("TOKEN_BUDGET", "200000")))
     max_concurrent_requests: int = field(
         default_factory=lambda: int(os.environ.get("MAX_CONCURRENT_REQUESTS", "5"))
     )
@@ -54,9 +48,7 @@ class Settings:
     authority_weight: float = field(
         default_factory=lambda: float(os.environ.get("AUTHORITY_WEIGHT", "0.2"))
     )
-    rrf_k: int = field(
-        default_factory=lambda: int(os.environ.get("RRF_K", "60"))
-    )
+    rrf_k: int = field(default_factory=lambda: int(os.environ.get("RRF_K", "60")))
 
     # Convergence
     convergence_threshold: float = field(

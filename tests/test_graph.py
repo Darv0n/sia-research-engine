@@ -1,10 +1,6 @@
 """Tests for graph construction and routing."""
 
-from unittest.mock import AsyncMock, MagicMock, patch
-
-import pytest
-
-from deep_research_swarm.contracts import Confidence, GraderScores, SectionDraft
+from unittest.mock import MagicMock, patch
 
 
 class TestGraphRouting:
@@ -12,7 +8,6 @@ class TestGraphRouting:
 
     def test_converged_routes_to_report(self):
         """When converged=True, should route to 'report'."""
-        from deep_research_swarm.graph.builder import build_graph
 
         # We test the routing function directly
         state = {"converged": True}

@@ -7,17 +7,9 @@ without making real API calls.
 from __future__ import annotations
 
 import json
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
-
-from deep_research_swarm.contracts import (
-    Confidence,
-    GraderScores,
-    SectionDraft,
-    SourceAuthority,
-)
-
 
 # Canned LLM responses
 PLANNER_RESPONSE = json.dumps(
@@ -48,7 +40,8 @@ SYNTHESIZER_RESPONSE = json.dumps(
         "sections": [
             {
                 "heading": "What is Quantum Entanglement?",
-                "content": "Quantum entanglement is a phenomenon where two particles become correlated [1].",
+                "content": "Quantum entanglement is a phenomenon "
+                "where two particles become correlated [1].",
                 "source_ids": [1],
                 "confidence": 0.85,
             },
@@ -129,5 +122,6 @@ async def test_planner_produces_sub_queries():
         assert len(result["perspectives"]) == 3
         assert "sub_queries" in result
         assert len(result["sub_queries"]) == 3
-        assert result["sub_queries"][0]["question"] == "What is quantum entanglement in simple terms?"
+        expected_q = "What is quantum entanglement in simple terms?"
+        assert result["sub_queries"][0]["question"] == expected_q
         assert result["current_iteration"] == 1

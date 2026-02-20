@@ -9,7 +9,6 @@ from deep_research_swarm.contracts import (
     Confidence,
     ExtractedContent,
     GraderScores,
-    ResearchGap,
     ScoredDocument,
     SearchResult,
     SectionDraft,

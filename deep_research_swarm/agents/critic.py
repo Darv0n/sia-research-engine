@@ -2,10 +2,8 @@
 
 from __future__ import annotations
 
-import json
-
 from deep_research_swarm.agents.base import AgentCaller
-from deep_research_swarm.contracts import Confidence, GraderScores, SectionDraft
+from deep_research_swarm.contracts import GraderScores, SectionDraft
 from deep_research_swarm.graph.state import ResearchState
 from deep_research_swarm.scoring.confidence import (
     classify_confidence,
@@ -19,7 +17,7 @@ for quality, relevance, and potential hallucination.
 
 For each section, provide scores from 0.0 to 1.0:
 - relevance: How well the section answers the research question (1.0 = perfectly relevant)
-- hallucination: Confidence that claims are grounded in sources (1.0 = fully grounded, no hallucination)
+- hallucination: Confidence claims are grounded in sources (1.0 = fully grounded)
 - quality: Overall writing quality, depth, and usefulness (1.0 = excellent)
 
 Output STRICT JSON (no markdown, no commentary):
@@ -60,13 +58,11 @@ async def critique(state: ResearchState, caller: AgentCaller) -> dict:
     sections_text = ""
     for sec in section_drafts:
         sections_text += (
-            f"\n--- Section: {sec['heading']} (id: {sec['id']}) ---\n"
-            f"{sec['content']}\n"
+            f"\n--- Section: {sec['heading']} (id: {sec['id']}) ---\n{sec['content']}\n"
         )
 
     user_content = (
-        f"Research question: {research_question}\n\n"
-        f"Sections to evaluate:\n{sections_text}"
+        f"Research question: {research_question}\n\nSections to evaluate:\n{sections_text}"
     )
 
     data, usage = await caller.call_json(

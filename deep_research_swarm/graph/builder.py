@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-from typing import Any
 
 from langgraph.graph import END, StateGraph
 
@@ -30,11 +29,8 @@ def build_graph(settings: Settings) -> StateGraph:
         model=settings.opus_model,
         max_concurrent=settings.max_concurrent_requests,
     )
-    sonnet_caller = AgentCaller(
-        api_key=settings.anthropic_api_key,
-        model=settings.sonnet_model,
-        max_concurrent=settings.max_concurrent_requests,
-    )
+    # sonnet_caller reserved for V2 (searcher/extractor agents)
+    # sonnet_caller = AgentCaller(api_key=..., model=settings.sonnet_model, ...)
 
     # Backend configs for searcher
     backend_configs: dict[str, dict] = {
@@ -58,7 +54,6 @@ def build_graph(settings: Settings) -> StateGraph:
 
         # Get the sub-queries added in the latest planning step
         # (all sub_queries accumulate via reducer, take the latest batch)
-        current_iteration = state.get("current_iteration", 1)
         prev_history = state.get("iteration_history", [])
         prev_sq_count = sum(h["sub_queries_generated"] for h in prev_history)
         latest_queries = sub_queries[prev_sq_count:]
@@ -74,10 +69,7 @@ def build_graph(settings: Settings) -> StateGraph:
         if settings.tavily_api_key:
             import deep_research_swarm.backends.tavily  # noqa: F401
 
-        tasks = [
-            search_sub_query(sq, backend_configs=backend_configs)
-            for sq in latest_queries
-        ]
+        tasks = [search_sub_query(sq, backend_configs=backend_configs) for sq in latest_queries]
         results_lists = await asyncio.gather(*tasks, return_exceptions=True)
 
         all_results = []

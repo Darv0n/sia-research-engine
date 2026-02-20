@@ -9,9 +9,7 @@ from deep_research_swarm.scoring.confidence import (
 )
 
 
-def _make_section(
-    score: float, level: Confidence, section_id: str = "sec-001"
-) -> SectionDraft:
+def _make_section(score: float, level: Confidence, section_id: str = "sec-001") -> SectionDraft:
     return SectionDraft(
         id=section_id,
         heading="Test Section",

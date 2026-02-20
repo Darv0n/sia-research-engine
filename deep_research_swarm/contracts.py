@@ -5,21 +5,20 @@ from __future__ import annotations
 from enum import Enum
 from typing import Protocol, TypedDict, runtime_checkable
 
-
 # --- Enums ---
 
 
 class Confidence(str, Enum):
-    HIGH = "HIGH"       # >= 0.8
-    MEDIUM = "MEDIUM"   # 0.6 - 0.8
-    LOW = "LOW"         # < 0.6
+    HIGH = "HIGH"  # >= 0.8
+    MEDIUM = "MEDIUM"  # 0.6 - 0.8
+    LOW = "LOW"  # < 0.6
 
 
 class SourceAuthority(str, Enum):
-    INSTITUTIONAL = "institutional"   # .edu, .gov, journals
-    PROFESSIONAL = "professional"     # news, tech blogs
-    COMMUNITY = "community"           # forums, wikis
-    PROMOTIONAL = "promotional"       # marketing
+    INSTITUTIONAL = "institutional"  # .edu, .gov, journals
+    PROFESSIONAL = "professional"  # news, tech blogs
+    COMMUNITY = "community"  # forums, wikis
+    PROMOTIONAL = "promotional"  # marketing
     UNKNOWN = "unknown"
 
 
@@ -27,10 +26,10 @@ class SourceAuthority(str, Enum):
 
 
 class SubQuery(TypedDict):
-    id: str                           # "sq-001"
+    id: str  # "sq-001"
     question: str
     perspective: str
-    priority: int                     # 1 (highest) to 5
+    priority: int  # 1 (highest) to 5
     parent_query_id: str | None
     search_backends: list[str]
 
@@ -41,11 +40,11 @@ class SearchResult(TypedDict):
     url: str
     title: str
     snippet: str
-    backend: str                      # "searxng" | "exa" | "tavily"
+    backend: str  # "searxng" | "exa" | "tavily"
     rank: int
-    score: float                      # 0-1
+    score: float  # 0-1
     authority: SourceAuthority
-    timestamp: str                    # ISO 8601
+    timestamp: str  # ISO 8601
 
 
 class ExtractedContent(TypedDict):
@@ -53,9 +52,9 @@ class ExtractedContent(TypedDict):
     search_result_id: str
     url: str
     title: str
-    content: str                      # Cleaned markdown
+    content: str  # Cleaned markdown
     content_length: int
-    extractor_used: str               # "crawl4ai" | "trafilatura" | "pymupdf4llm"
+    extractor_used: str  # "crawl4ai" | "trafilatura" | "pymupdf4llm"
     extraction_success: bool
     error: str | None
 
@@ -67,21 +66,21 @@ class ScoredDocument(TypedDict):
     content: str
     rrf_score: float
     authority: SourceAuthority
-    authority_score: float            # 0-1
-    combined_score: float             # rrf * (1-w) + authority * w
+    authority_score: float  # 0-1
+    combined_score: float  # rrf * (1-w) + authority * w
     sub_query_ids: list[str]
 
 
 class GraderScores(TypedDict):
-    relevance: float                  # 0-1
-    hallucination: float              # 0-1 (1.0 = no hallucination)
-    quality: float                    # 0-1
+    relevance: float  # 0-1
+    hallucination: float  # 0-1 (1.0 = no hallucination)
+    quality: float  # 0-1
 
 
 class SectionDraft(TypedDict):
     id: str
     heading: str
-    content: str                      # Markdown with [N] citations
+    content: str  # Markdown with [N] citations
     citation_ids: list[str]
     confidence_score: float
     confidence_level: Confidence
@@ -89,7 +88,7 @@ class SectionDraft(TypedDict):
 
 
 class Citation(TypedDict):
-    id: str                           # "[1]", "[2]"
+    id: str  # "[1]", "[2]"
     url: str
     title: str
     authority: SourceAuthority
@@ -100,7 +99,7 @@ class Citation(TypedDict):
 class ResearchGap(TypedDict):
     description: str
     attempted_queries: list[str]
-    reason: str                       # "no_sources" | "contradictory" | "low_confidence"
+    reason: str  # "no_sources" | "contradictory" | "low_confidence"
 
 
 class TokenUsage(TypedDict):

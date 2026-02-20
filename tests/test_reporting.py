@@ -4,11 +4,8 @@ import yaml
 
 from deep_research_swarm.contracts import (
     Citation,
-    Confidence,
-    GraderScores,
     IterationRecord,
     ResearchGap,
-    SectionDraft,
     SourceAuthority,
 )
 from deep_research_swarm.reporting.citations import build_bibliography

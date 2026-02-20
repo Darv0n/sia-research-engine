@@ -8,7 +8,6 @@ from deep_research_swarm.contracts import (
     ExtractedContent,
     ScoredDocument,
     SearchResult,
-    SourceAuthority,
 )
 from deep_research_swarm.scoring.authority import authority_score
 

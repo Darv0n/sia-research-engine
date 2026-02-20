@@ -1,18 +1,10 @@
 """Tests for contracts.py — TypedDict construction, enum values."""
 
 from deep_research_swarm.contracts import (
-    Citation,
     Confidence,
-    ExtractedContent,
     GraderScores,
-    ResearchGap,
-    ScoredDocument,
     SearchBackend,
-    SearchResult,
-    SectionDraft,
     SourceAuthority,
-    SubQuery,
-    TokenUsage,
 )
 
 

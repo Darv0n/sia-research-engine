@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 
 import httpx
 
-from deep_research_swarm.contracts import SearchResult, SourceAuthority
+from deep_research_swarm.contracts import SearchResult
 from deep_research_swarm.scoring.authority import classify_authority
 
 from . import register_backend

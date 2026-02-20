@@ -66,9 +66,7 @@ class TestBuildScoredDocuments:
         for i in range(len(scored) - 1):
             assert scored[i]["combined_score"] >= scored[i + 1]["combined_score"]
 
-    def test_institutional_beats_community(
-        self, sample_search_results, sample_extracted_contents
-    ):
+    def test_institutional_beats_community(self, sample_search_results, sample_extracted_contents):
         """Institutional source should rank higher with authority weighting."""
         scored = build_scored_documents(
             sample_search_results,
@@ -78,9 +76,7 @@ class TestBuildScoredDocuments:
         )
         # Nature (institutional) should be near the top
         urls = [d["url"] for d in scored]
-        nature_idx = next(
-            (i for i, u in enumerate(urls) if "nature.com" in u), None
-        )
+        nature_idx = next((i for i, u in enumerate(urls) if "nature.com" in u), None)
         assert nature_idx is not None
 
     def test_empty_results(self):

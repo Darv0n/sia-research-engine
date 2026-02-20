@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import uuid
 
 from deep_research_swarm.agents.base import AgentCaller
@@ -12,7 +11,6 @@ from deep_research_swarm.contracts import (
     GraderScores,
     ScoredDocument,
     SectionDraft,
-    SourceAuthority,
 )
 from deep_research_swarm.graph.state import ResearchState
 from deep_research_swarm.scoring.confidence import classify_confidence
@@ -68,9 +66,7 @@ async def synthesize(state: ResearchState, caller: AgentCaller) -> dict:
                     citation_ids=[],
                     confidence_score=0.0,
                     confidence_level=Confidence.LOW,
-                    grader_scores=GraderScores(
-                        relevance=0.0, hallucination=1.0, quality=0.0
-                    ),
+                    grader_scores=GraderScores(relevance=0.0, hallucination=1.0, quality=0.0),
                 )
             ],
         }
