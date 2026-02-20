@@ -71,6 +71,12 @@ class Settings:
         default_factory=lambda: os.environ.get("CHECKPOINT_BACKEND", "sqlite")
     )
 
+    # Memory (V5)
+    memory_dir: str = field(default_factory=lambda: os.environ.get("MEMORY_DIR", "memory/"))
+
+    # PostgresSaver (V5)
+    postgres_dsn: str = field(default_factory=lambda: os.environ.get("POSTGRES_DSN", ""))
+
     def available_backends(self) -> list[str]:
         """Return list of backends that have valid configuration."""
         backends = ["searxng"]  # Always available (local)
@@ -89,14 +95,13 @@ class Settings:
             errors.append("MAX_ITERATIONS must be >= 1")
         if self.token_budget < 1000:
             errors.append("TOKEN_BUDGET must be >= 1000")
-        if self.checkpoint_backend not in ("sqlite", "none"):
-            if self.checkpoint_backend == "postgres":
-                errors.append("CHECKPOINT_BACKEND 'postgres' is not yet implemented")
-            else:
-                errors.append(
-                    f"CHECKPOINT_BACKEND must be 'sqlite' or 'none',"
-                    f" got '{self.checkpoint_backend}'"
-                )
+        if self.checkpoint_backend not in ("sqlite", "none", "postgres"):
+            errors.append(
+                f"CHECKPOINT_BACKEND must be 'sqlite', 'postgres', or 'none',"
+                f" got '{self.checkpoint_backend}'"
+            )
+        if self.checkpoint_backend == "postgres" and not self.postgres_dsn:
+            errors.append("POSTGRES_DSN is required when CHECKPOINT_BACKEND is 'postgres'")
         return errors
 
 

@@ -91,6 +91,10 @@ On subsequent iterations, the synthesizer refines rather than regenerates — pr
              |      +--------+---------+
              |               |
              |      +--------v---------+
+             |      |  contradiction   |  Cross-source conflict detection
+             |      +--------+---------+
+             |               |
+             |      +--------v---------+
              |      |   synthesize     |  RAG-Fusion + citations
              |      +--------+---------+
              |               |
@@ -202,6 +206,12 @@ All settings are controlled via environment variables. Copy `.env.example` to `.
 | `AUTHORITY_WEIGHT` | `0.2` | Weight of authority score in ranking |
 | `RRF_K` | `60` | RRF smoothing parameter |
 | `CONVERGENCE_THRESHOLD` | `0.05` | Minimum improvement to continue iterating |
+| `SEARCH_CACHE_TTL` | `3600` | Search cache TTL in seconds |
+| `SEARCH_CACHE_DIR` | `.cache/search` | Search cache directory |
+| `CHECKPOINT_DB` | `checkpoints/research.db` | SQLite checkpoint database path |
+| `CHECKPOINT_BACKEND` | `sqlite` | Checkpoint backend: `sqlite`, `postgres`, or `none` |
+| `POSTGRES_DSN` | *(optional)* | PostgreSQL connection string (required when backend=postgres) |
+| `MEMORY_DIR` | `memory/` | Path to memory storage directory |
 
 ## Search Backends
 
@@ -286,7 +296,11 @@ Synthesized content with inline [1] citations referencing sources [2].
 ```
 usage: deep-research-swarm [-h] [--max-iterations N] [--token-budget N]
                            [--output PATH] [--backends BACKEND [BACKEND ...]]
-                           question
+                           [--no-cache] [--no-stream] [--verbose]
+                           [--resume THREAD_ID] [--list-threads]
+                           [--dump-state THREAD_ID] [--no-memory]
+                           [--list-memories] [--export-mcp]
+                           [question]
 
 positional arguments:
   question              The research question to investigate
@@ -297,6 +311,15 @@ options:
   --token-budget N      Maximum token budget (default: from config)
   --output PATH         Output file path (default: output/<timestamp>.md)
   --backends B [B ...]  Search backends to use (default: all available)
+  --no-cache            Disable search result caching
+  --no-stream           Use blocking ainvoke instead of astream
+  --verbose             Detailed streaming progress
+  --resume THREAD_ID    Resume a previous research run from checkpoint
+  --list-threads        List recent research threads from checkpoint DB
+  --dump-state THREAD_ID  Export checkpoint state as JSON
+  --no-memory           Disable memory store/retrieval for this run
+  --list-memories       Print stored memory records and exit
+  --export-mcp          Export memory in MCP entity format
 ```
 
 ### Examples
@@ -313,6 +336,24 @@ python -m deep_research_swarm --backends searxng exa "Effects of sleep on memory
 
 # Custom output path
 python -m deep_research_swarm --output reports/ai-safety.md "Current state of AI safety research"
+
+# Verbose streaming with progress details
+python -m deep_research_swarm --verbose "Impact of remote work on productivity"
+
+# Resume a crashed or interrupted run
+python -m deep_research_swarm --resume research-20260220-131354-3767
+
+# List previous research threads
+python -m deep_research_swarm --list-threads
+
+# Export checkpoint state for debugging
+python -m deep_research_swarm --dump-state research-20260220-131354-3767
+
+# Run without cross-session memory
+python -m deep_research_swarm --no-memory "Ephemeral research question"
+
+# View stored research memories
+python -m deep_research_swarm --list-memories
 ```
 
 ## Project Structure
@@ -320,7 +361,7 @@ python -m deep_research_swarm --output reports/ai-safety.md "Current state of AI
 ```
 deep-research-swarm/
 ├── deep_research_swarm/
-│   ├── __main__.py              # CLI entry point
+│   ├── __main__.py              # CLI entry point + checkpoint/memory lifecycle
 │   ├── contracts.py             # All types, enums, protocols (SSOT)
 │   ├── config.py                # Settings from environment variables
 │   │
@@ -329,40 +370,56 @@ deep-research-swarm/
 │   │   └── builder.py           # StateGraph construction + edge wiring
 │   │
 │   ├── agents/
-│   │   ├── base.py              # AgentCaller (Anthropic SDK wrapper)
+│   │   ├── base.py              # AgentCaller (Anthropic SDK wrapper + retry)
 │   │   ├── planner.py           # STORM decomposition + query dedup
 │   │   ├── searcher.py          # Parallel search dispatch
 │   │   ├── extractor.py         # Content extraction coordinator
 │   │   ├── synthesizer.py       # RAG-Fusion synthesis
+│   │   ├── contradiction.py     # Sonnet-powered contradiction detection
 │   │   └── critic.py            # Three-grader chain + convergence
 │   │
 │   ├── backends/
 │   │   ├── protocol.py          # SearchBackend Protocol (PEP 544)
 │   │   ├── searxng.py           # SearXNG implementation
 │   │   ├── exa.py               # Exa semantic search
-│   │   └── tavily.py            # Tavily factual search
+│   │   ├── tavily.py            # Tavily factual search
+│   │   └── cache.py             # File-based search cache (SHA-256 keys, TTL)
 │   │
 │   ├── extractors/
 │   │   ├── crawl4ai_extractor.py
 │   │   ├── trafilatura_extractor.py
-│   │   └── pdf_extractor.py
+│   │   └── pdf_extractor.py     # HTTP download + pymupdf4llm
 │   │
 │   ├── scoring/
 │   │   ├── rrf.py               # Reciprocal Rank Fusion
 │   │   ├── authority.py         # Source authority classification
-│   │   └── confidence.py        # Confidence + replan logic
+│   │   ├── confidence.py        # Confidence + replan logic
+│   │   └── diversity.py         # HHI-based source diversity scoring
 │   │
 │   ├── reporting/
 │   │   ├── renderer.py          # Markdown report generation
 │   │   ├── citations.py         # Dedup, renumber, bibliography
-│   │   └── heatmap.py           # Confidence heat map table
+│   │   ├── heatmap.py           # Confidence heat map table
+│   │   └── trends.py            # Confidence sparklines across iterations
+│   │
+│   ├── memory/
+│   │   ├── store.py             # JSON-backed cross-session memory store
+│   │   ├── extract.py           # Deterministic memory record extraction
+│   │   └── mcp_export.py        # MCP entity format export
+│   │
+│   ├── utils/
+│   │   └── text.py              # Jaccard score, dedup utilities
+│   │
+│   ├── streaming.py             # StreamDisplay for astream progress
 │   │
 │   └── budget/
 │       └── tracker.py           # Token budget tracking
 │
-├── tests/                       # 87 tests across 10 modules
+├── tests/                       # 196 tests across 16 modules
 ├── docker/                      # SearXNG Docker configuration
 ├── output/                      # Generated reports (gitignored)
+├── checkpoints/                 # SQLite checkpoint DB (gitignored)
+├── memory/                      # Research memory store (gitignored)
 └── .github/workflows/ci.yml    # Lint + test matrix (3.11, 3.12)
 ```
 
@@ -384,7 +441,7 @@ pytest tests/test_rrf.py -v
 python -m deep_research_swarm "What is quantum entanglement?"
 ```
 
-**87 tests** covering:
+**196 tests** covering:
 
 | Module | Tests | Coverage |
 |--------|-------|----------|
@@ -394,9 +451,20 @@ python -m deep_research_swarm "What is quantum entanglement?"
 | Contracts | 10 | TypedDict construction, enum values, Protocol conformance |
 | Budget tracker | 7 | Recording, limits, agent breakdown |
 | Backends | 4 | Registry, Protocol conformance |
-| Graph | 3 | Compilation, routing logic |
+| Graph | 4 | Compilation, routing, checkpointer wiring |
 | Reporting | 14 | Frontmatter, citations, dedup/renumber, heat map |
 | Query dedup | 12 | Jaccard similarity, substring, thresholds |
+| Contradiction | 4 | LLM parse, index mapping, out-of-range handling |
+| Diversity | 6 | HHI math, domain normalization, authority counts |
+| Search cache | 7 | Round-trip, TTL expiry, key determinism, corruption |
+| Streaming | 7 | Node labels, iteration detection, custom events |
+| PDF extraction | 9 | URL detection, cascade routing, local/remote extraction |
+| Trends | 5 | Sparkline rendering, new/dropped sections |
+| Resume/checkpoint | 12 | Arg parsing, resume validation, thread ID format |
+| Dump state | 5 | CLI flags, memory context formatting |
+| Memory store | 11 | Add/list, search, persistence, graceful degradation |
+| Memory extract | 3 | Full state, empty state, missing fields |
+| Text utils | 9 | Jaccard score, is_duplicate, custom thresholds |
 | Integration | 1 | Mocked LLM planner e2e |
 
 All tests run without network access, API keys, or Docker — LLM calls are mocked.
@@ -452,7 +520,9 @@ No inheritance required — the Protocol uses structural subtyping (PEP 544).
 - [x] **V1** — Core loop: single backend, single iteration, basic synthesis
 - [x] **V2** — Multi-iteration quality: three-grader chain, context-aware synthesis, query dedup, citation renumbering, sonnet cost optimization
 - [x] **V3** — Reports & observability: streaming output, confidence trends, search caching, contradiction detection, source diversity scoring
-- [ ] **V4** — Persistence & resume: SqliteSaver checkpointing, `--resume` CLI flag, PDF extraction, PostgresSaver option
+- [x] **V4** — Persistence & resume: AsyncSqliteSaver checkpointing, `--resume` CLI flag, PDF extraction cascade, PostgresSaver option
+- [x] **V5** — Memory & state: cross-session research memory (JSON-backed Jaccard search), `--dump-state`, `--list-memories`, `--export-mcp`, extracted text utilities, memory lifecycle in CLI
+- [ ] **V6** — Planned: embedding-based memory retrieval (LangGraph Store / LanceDB), multi-hop recursive research spawning (Send API), academic search backends (OpenAlex, Semantic Scholar, arXiv), memory pruning
 
 ## License
 

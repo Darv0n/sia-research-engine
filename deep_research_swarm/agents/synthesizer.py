@@ -286,7 +286,7 @@ async def synthesize(state: ResearchState, caller: AgentCaller) -> dict:
         system=system_prompt,
         messages=[{"role": "user", "content": user_content}],
         agent_name="synthesizer",
-        max_tokens=4096,
+        max_tokens=16384,
     )
 
     section_drafts, all_citations, research_gaps = _build_citations(data, doc_index, top_docs)

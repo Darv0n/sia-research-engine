@@ -1,4 +1,8 @@
-"""Tests for V2 query deduplication in planner."""
+"""Tests for V2 query deduplication in planner.
+
+Note: _is_duplicate is re-exported from utils.text via planner import.
+See also test_text_utils.py for direct utils.text tests.
+"""
 
 from deep_research_swarm.agents.planner import _is_duplicate
 

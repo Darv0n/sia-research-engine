@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import json
 import os
 import sys
+from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -19,6 +21,41 @@ def _generate_thread_id() -> str:
     ts = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
     suffix = os.urandom(2).hex()
     return f"research-{ts}-{suffix}"
+
+
+@asynccontextmanager
+async def _make_checkpointer(settings, db_path: str):
+    """Yield the appropriate checkpointer based on settings, or None.
+
+    Handles sqlite, postgres, and none backends.
+    """
+    backend = settings.checkpoint_backend
+
+    if backend == "none":
+        yield None
+        return
+
+    if backend == "postgres":
+        try:
+            from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
+        except ImportError:
+            print(
+                "ERROR: langgraph-checkpoint-postgres is not installed.\n"
+                "Install with: pip install 'deep-research-swarm[postgres]'",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+        async with AsyncPostgresSaver.from_conn_string(settings.postgres_dsn) as checkpointer:
+            await checkpointer.setup()
+            yield checkpointer
+        return
+
+    # Default: sqlite
+    from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
+
+    Path(db_path).parent.mkdir(parents=True, exist_ok=True)
+    async with AsyncSqliteSaver.from_conn_string(db_path) as checkpointer:
+        yield checkpointer
 
 
 def parse_args() -> argparse.Namespace:
@@ -89,11 +126,41 @@ def parse_args() -> argparse.Namespace:
         default=False,
         help="List recent research threads from checkpoint database",
     )
+    # V5 flags
+    parser.add_argument(
+        "--dump-state",
+        type=str,
+        default=None,
+        metavar="THREAD_ID",
+        help="Export checkpoint state as JSON for a given thread ID",
+    )
+    parser.add_argument(
+        "--no-memory",
+        action="store_true",
+        default=False,
+        help="Disable memory store/retrieval for this run",
+    )
+    parser.add_argument(
+        "--list-memories",
+        action="store_true",
+        default=False,
+        help="Print stored memory records and exit",
+    )
+    parser.add_argument(
+        "--export-mcp",
+        action="store_true",
+        default=False,
+        help="Export memory records in MCP entity format and exit",
+    )
     args = parser.parse_args()
 
-    # Validate: need question, --resume, or --list-threads
-    if not args.question and not args.resume and not args.list_threads:
-        parser.error("a question is required (or use --resume THREAD_ID / --list-threads)")
+    # Validate: need question, --resume, or a standalone flag
+    standalone = args.list_threads or args.dump_state or args.list_memories or args.export_mcp
+    if not args.question and not args.resume and not standalone:
+        parser.error(
+            "a question is required (or use --resume THREAD_ID / --list-threads "
+            "/ --dump-state THREAD_ID / --list-memories / --export-mcp)"
+        )
 
     return args
 
@@ -157,6 +224,7 @@ def _output_report(result: dict, *, output_path_override: str | None, question: 
         safe_q = safe_q.strip().replace(" ", "-").lower()
         output_path = output_dir / f"{ts}-{safe_q}.md"
 
+    output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(report, encoding="utf-8")
     print(f"\nReport saved to: {output_path}", file=sys.stderr)
 
@@ -172,15 +240,21 @@ def _output_report(result: dict, *, output_path_override: str | None, question: 
     )
 
 
-async def _list_threads(db_path: str) -> None:
+async def _list_threads(settings, db_path: str) -> None:
     """List recent research threads from the checkpoint database."""
-    from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
+    if settings.checkpoint_backend == "none":
+        print("Checkpointing is disabled.", file=sys.stderr)
+        return
 
-    if not Path(db_path).exists():
+    if settings.checkpoint_backend == "sqlite" and not Path(db_path).exists():
         print("No checkpoint database found.", file=sys.stderr)
         return
 
-    async with AsyncSqliteSaver.from_conn_string(db_path) as checkpointer:
+    async with _make_checkpointer(settings, db_path) as checkpointer:
+        if checkpointer is None:
+            print("Checkpointing is disabled.", file=sys.stderr)
+            return
+
         seen: dict[str, str] = {}  # thread_id -> status (first = latest checkpoint)
         async for cp in checkpointer.alist(None, limit=100):
             thread_id = cp.config["configurable"].get("thread_id", "unknown")
@@ -195,6 +269,100 @@ async def _list_threads(db_path: str) -> None:
             print(f"  {thread_id}  [{status}]")
 
 
+async def _dump_state(settings, db_path: str, thread_id: str, output: str | None) -> None:
+    """Export checkpoint state as JSON for a given thread ID."""
+    if settings.checkpoint_backend == "none":
+        print("ERROR: Checkpointing is disabled.", file=sys.stderr)
+        sys.exit(1)
+
+    if settings.checkpoint_backend == "sqlite" and not Path(db_path).exists():
+        print(f"ERROR: Checkpoint database not found: {db_path}", file=sys.stderr)
+        sys.exit(1)
+
+    async with _make_checkpointer(settings, db_path) as checkpointer:
+        if checkpointer is None:
+            print("ERROR: No checkpointer available.", file=sys.stderr)
+            sys.exit(1)
+
+        graph = build_graph(settings, checkpointer=checkpointer)
+        config = {"configurable": {"thread_id": thread_id}}
+
+        snapshot = await graph.aget_state(config=config)
+        if not snapshot or not snapshot.values:
+            print(f"ERROR: No checkpoint found for thread '{thread_id}'", file=sys.stderr)
+            sys.exit(1)
+
+        # Serialize state — use default=str for non-serializable types
+        state_json = json.dumps(snapshot.values, indent=2, default=str, ensure_ascii=False)
+
+        if output:
+            Path(output).write_text(state_json, encoding="utf-8")
+            print(f"State exported to: {output}", file=sys.stderr)
+        else:
+            print(state_json)
+
+
+def _list_memories(memory_dir: str) -> None:
+    """Print stored memory records."""
+    from deep_research_swarm.memory.store import MemoryStore
+
+    store = MemoryStore(memory_dir)
+    records = store.list_all()
+
+    if not records:
+        print("No memory records found.", file=sys.stderr)
+        return
+
+    for rec in records:
+        converged = "converged" if rec.get("converged") else "incomplete"
+        findings_count = len(rec.get("key_findings", []))
+        gaps_count = len(rec.get("gaps", []))
+        print(
+            f"  {rec.get('thread_id', '?')}  "
+            f"[{converged}]  "
+            f"{rec.get('iterations', 0)} iter, "
+            f"{rec.get('sources_count', 0)} sources, "
+            f"{findings_count} findings, "
+            f"{gaps_count} gaps"
+        )
+        print(f"    Q: {rec.get('question', '?')}")
+        print(f"    T: {rec.get('timestamp', '?')}")
+
+
+def _export_mcp(memory_dir: str) -> None:
+    """Export memory records in MCP entity format."""
+    from deep_research_swarm.memory.mcp_export import export_to_mcp_format
+    from deep_research_swarm.memory.store import MemoryStore
+
+    store = MemoryStore(memory_dir)
+    records = store.list_all()
+
+    if not records:
+        print("No memory records to export.", file=sys.stderr)
+        return
+
+    print(export_to_mcp_format(records))
+
+
+def _format_memory_context(memories: list[dict]) -> str:
+    """Format retrieved memories into a context string for the planner."""
+    if not memories:
+        return ""
+
+    parts = []
+    for mem in memories:
+        lines = [f"- Prior research: {mem.get('question', '?')}"]
+        findings = mem.get("key_findings", [])
+        if findings:
+            lines.append(f"  Findings: {', '.join(findings)}")
+        gaps = mem.get("gaps", [])
+        if gaps:
+            lines.append(f"  Open gaps: {', '.join(gaps)}")
+        parts.append("\n".join(lines))
+
+    return "\n".join(parts)
+
+
 async def run(args: argparse.Namespace) -> None:
     settings = get_settings()
 
@@ -205,30 +373,41 @@ async def run(args: argparse.Namespace) -> None:
             print(f"ERROR: {err}", file=sys.stderr)
         sys.exit(1)
 
-    # Resolve checkpoint database path
+    # Resolve paths
     project_root = Path(__file__).resolve().parent.parent
     db_path = str(project_root / settings.checkpoint_db)
+    memory_dir = str(project_root / settings.memory_dir)
 
-    # --list-threads: show threads and exit
+    # --- Standalone operations (no graph execution) ---
+
     if args.list_threads:
-        await _list_threads(db_path)
+        await _list_threads(settings, db_path)
         return
 
-    use_checkpointer = settings.checkpoint_backend == "sqlite"
+    if args.dump_state:
+        await _dump_state(settings, db_path, args.dump_state, args.output)
+        return
 
-    # --resume: resume a previous thread
+    if args.list_memories:
+        _list_memories(memory_dir)
+        return
+
+    if args.export_mcp:
+        _export_mcp(memory_dir)
+        return
+
+    # --- Resume path ---
+
     if args.resume:
-        if not use_checkpointer:
+        if settings.checkpoint_backend == "none":
             print("ERROR: Cannot resume with checkpoint_backend='none'", file=sys.stderr)
             sys.exit(1)
 
-        from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
-
-        if not Path(db_path).exists():
+        if settings.checkpoint_backend == "sqlite" and not Path(db_path).exists():
             print(f"ERROR: Checkpoint database not found: {db_path}", file=sys.stderr)
             sys.exit(1)
 
-        async with AsyncSqliteSaver.from_conn_string(db_path) as checkpointer:
+        async with _make_checkpointer(settings, db_path) as checkpointer:
             graph = build_graph(settings, enable_cache=not args.no_cache, checkpointer=checkpointer)
             config = {"configurable": {"thread_id": args.resume}}
 
@@ -244,7 +423,7 @@ async def run(args: argparse.Namespace) -> None:
                 _output_report(snapshot.values, output_path_override=args.output, question=question)
                 return
 
-            # Incomplete run — resume from last checkpoint
+            # Incomplete run — resume from last checkpoint (no memory storage)
             print(f"Resuming thread '{args.resume}' from node(s): {snapshot.next}", file=sys.stderr)
             result = await _execute(
                 graph,
@@ -257,7 +436,8 @@ async def run(args: argparse.Namespace) -> None:
             _output_report(result, output_path_override=args.output, question=question)
         return
 
-    # New research run
+    # --- New research run ---
+
     if not args.question:
         print("ERROR: A research question is required.", file=sys.stderr)
         sys.exit(1)
@@ -266,11 +446,26 @@ async def run(args: argparse.Namespace) -> None:
     max_iter = args.max_iterations or settings.max_iterations
     budget = args.token_budget or settings.token_budget
 
+    # Memory retrieval (pre-computed context for planner)
+    use_memory = not args.no_memory
+    memory_context = ""
+    store = None
+
+    if use_memory:
+        from deep_research_swarm.memory.store import MemoryStore
+
+        store = MemoryStore(memory_dir)
+        memories = store.search(args.question)
+        memory_context = _format_memory_context(memories)
+        if memory_context:
+            print(f"Memory: loaded {len(memories)} prior research record(s)", file=sys.stderr)
+
     initial_state = {
         "research_question": args.question,
         "max_iterations": max_iter,
         "token_budget": budget,
         "search_backends": backends,
+        "memory_context": memory_context,
         "perspectives": [],
         "sub_queries": [],
         "search_results": [],
@@ -291,15 +486,12 @@ async def run(args: argparse.Namespace) -> None:
         "final_report": "",
     }
 
+    use_checkpointer = settings.checkpoint_backend != "none"
+
     if use_checkpointer:
-        from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
-
-        # Ensure checkpoint directory exists
-        Path(db_path).parent.mkdir(parents=True, exist_ok=True)
-
         thread_id = _generate_thread_id()
 
-        async with AsyncSqliteSaver.from_conn_string(db_path) as checkpointer:
+        async with _make_checkpointer(settings, db_path) as checkpointer:
             graph = build_graph(settings, enable_cache=not args.no_cache, checkpointer=checkpointer)
             config = {"configurable": {"thread_id": thread_id}}
 
@@ -317,7 +509,8 @@ async def run(args: argparse.Namespace) -> None:
                 verbose=args.verbose,
             )
     else:
-        # No checkpointing — run like V3
+        # No checkpointing
+        thread_id = _generate_thread_id()
         graph = build_graph(settings, enable_cache=not args.no_cache)
         config = {}
 
@@ -335,6 +528,14 @@ async def run(args: argparse.Namespace) -> None:
         )
 
     _output_report(result, output_path_override=args.output, question=args.question)
+
+    # Memory storage (after successful report output)
+    if use_memory and store is not None:
+        from deep_research_swarm.memory.extract import extract_memory_record
+
+        record = extract_memory_record(result, thread_id)
+        store.add_record(record)
+        print(f"Memory: stored record for thread {thread_id}", file=sys.stderr)
 
 
 def main() -> None:

@@ -57,6 +57,7 @@ class ResearchState(TypedDict):
     max_iterations: Annotated[int, _replace_int]
     token_budget: Annotated[int, _replace_int]
     search_backends: Annotated[list[str], operator.add]
+    memory_context: Annotated[str, _replace]
 
     # Planning (accumulate across iterations)
     perspectives: Annotated[list[str], operator.add]

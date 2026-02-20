@@ -31,11 +31,22 @@ class TestCheckpointConfig:
         errors = s.validate()
         assert not any("CHECKPOINT_BACKEND" in e for e in errors)
 
-    def test_postgres_backend_not_implemented(self):
-        """checkpoint_backend='postgres' returns not-yet-implemented error."""
-        s = Settings(anthropic_api_key="k", checkpoint_backend="postgres")
+    def test_postgres_valid_with_dsn(self):
+        """checkpoint_backend='postgres' passes validation when POSTGRES_DSN is set."""
+        s = Settings(
+            anthropic_api_key="k",
+            checkpoint_backend="postgres",
+            postgres_dsn="postgresql://user:pass@localhost/db",
+        )
         errors = s.validate()
-        assert any("not yet implemented" in e for e in errors)
+        assert not any("CHECKPOINT_BACKEND" in e for e in errors)
+        assert not any("POSTGRES_DSN" in e for e in errors)
+
+    def test_postgres_invalid_without_dsn(self):
+        """checkpoint_backend='postgres' fails validation without POSTGRES_DSN."""
+        s = Settings(anthropic_api_key="k", checkpoint_backend="postgres", postgres_dsn="")
+        errors = s.validate()
+        assert any("POSTGRES_DSN" in e for e in errors)
 
     def test_unknown_backend_rejected(self):
         """Unknown checkpoint_backend is rejected."""

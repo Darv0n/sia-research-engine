@@ -134,6 +134,17 @@ class SectionConfidenceSnapshot(TypedDict):
     confidence_level: str  # Confidence enum value as string
 
 
+class ResearchMemory(TypedDict):
+    thread_id: str
+    question: str
+    timestamp: str  # ISO 8601
+    key_findings: list[str]  # section headings from section_drafts
+    gaps: list[str]  # from research_gaps descriptions
+    sources_count: int
+    iterations: int
+    converged: bool
+
+
 class IterationRecord(TypedDict):
     iteration: int
     sub_queries_generated: int

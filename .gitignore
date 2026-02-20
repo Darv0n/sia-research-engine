@@ -35,6 +35,7 @@ htmlcov/
 # Output (generated reports)
 output/*
 !output/.gitkeep
+research-output/
 
 # Data / persistence
 *.db
@@ -42,6 +43,7 @@ output/*
 *.sqlite3
 checkpoints/
 .cache/
+/memory/
 
 # Claude Code
 .claude/

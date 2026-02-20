@@ -158,6 +158,14 @@ class AgentCaller:
         try:
             data = json.loads(cleaned)
         except json.JSONDecodeError as e:
+            # Detect truncated responses (JSON cut off mid-stream)
+            stripped = cleaned.rstrip()
+            if stripped and stripped[-1] not in ("}", "]"):
+                raise ValueError(
+                    f"Truncated JSON from {agent_name} (likely hit max_tokens). "
+                    f"Response ends at char {len(cleaned)}. "
+                    f"Increase max_tokens for this agent.\nRaw tail: ...{text[-200:]}"
+                )
             raise ValueError(f"Failed to parse JSON from {agent_name}: {e}\nRaw: {text[:500]}")
 
         return data, usage

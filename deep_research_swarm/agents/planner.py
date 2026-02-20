@@ -8,6 +8,7 @@ import uuid
 from deep_research_swarm.agents.base import AgentCaller
 from deep_research_swarm.contracts import SubQuery
 from deep_research_swarm.graph.state import ResearchState
+from deep_research_swarm.utils.text import is_duplicate as _is_duplicate
 
 PLANNER_SYSTEM = """\
 You are a research planning agent. Given a research question, decompose it \
@@ -38,36 +39,6 @@ Generate NEW queries that address the gaps. Do NOT repeat previous queries.
 """
 
 
-def _is_duplicate(new_query: str, existing: list[str], threshold: float = 0.7) -> bool:
-    """Check if a query is a near-duplicate of any existing query.
-
-    Uses normalized token overlap (Jaccard similarity) as a fast heuristic.
-    """
-    new_tokens = set(new_query.lower().split())
-    if not new_tokens:
-        return True
-
-    for existing_q in existing:
-        existing_tokens = set(existing_q.lower().split())
-        if not existing_tokens:
-            continue
-
-        intersection = new_tokens & existing_tokens
-        union = new_tokens | existing_tokens
-        jaccard = len(intersection) / len(union) if union else 0.0
-
-        if jaccard >= threshold:
-            return True
-
-        # Also catch substring containment
-        if new_query.lower() in existing_q.lower():
-            return True
-        if existing_q.lower() in new_query.lower():
-            return True
-
-    return False
-
-
 async def plan(state: ResearchState, caller: AgentCaller) -> dict:
     """Decompose research question into perspectives and sub-queries."""
     research_question = state["research_question"]
@@ -76,6 +47,13 @@ async def plan(state: ResearchState, caller: AgentCaller) -> dict:
     gaps = state.get("research_gaps", [])
 
     user_content = f"Research question: {research_question}"
+
+    memory_context = state.get("memory_context", "")
+    if memory_context:
+        user_content += (
+            f"\n\nPrior research findings (use as background, do not repeat these queries):\n"
+            f"{memory_context}"
+        )
 
     if iteration > 0 and (existing_queries or gaps):
         user_content += f"\n\nIteration: {iteration + 1}"
