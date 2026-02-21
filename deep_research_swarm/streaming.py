@@ -36,6 +36,13 @@ class StreamDisplay:
     def handle_update(self, update: dict[str, Any]) -> None:
         """Handle an 'updates' stream event (node_name -> state_update)."""
         for node_name, state_delta in update.items():
+            # HITL gates emit tuples (interrupt payloads), not dicts
+            if not isinstance(state_delta, dict):
+                label = NODE_LABELS.get(node_name, node_name)
+                self._current_node = node_name
+                self._print(f"  [{label}]")
+                continue
+
             label = NODE_LABELS.get(node_name, node_name)
 
             # Detect iteration changes
