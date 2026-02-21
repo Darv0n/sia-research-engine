@@ -47,7 +47,8 @@ def _make_citation(
 
 class TestExtractClaims:
     def test_extracts_cited_sentence(self):
-        sections = [_make_section(content="Quantum entanglement is well established [1]. More text here.")]
+        text = "Quantum entanglement is well established [1]. More text here."
+        sections = [_make_section(content=text)]
         citations = [_make_citation()]
         claims = extract_claims(sections, citations)
         assert len(claims) == 1
@@ -89,9 +90,11 @@ class TestExtractClaims:
         assert titles == {"Source One", "Source Two"}
 
     def test_multiple_sections(self):
+        text_a = "The first substantial claim is documented in the literature [1]."
+        text_b = "The second substantial claim is also well supported [2]."
         sections = [
-            _make_section(heading="Section A", content="The first substantial claim is documented in the literature [1]."),
-            _make_section(heading="Section B", content="The second substantial claim is also well supported [2]."),
+            _make_section(heading="Section A", content=text_a),
+            _make_section(heading="Section B", content=text_b),
         ]
         citations = [_make_citation("[1]"), _make_citation("[2]", title="Source Two")]
         claims = extract_claims(sections, citations)
