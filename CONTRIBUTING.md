@@ -64,6 +64,48 @@ async def fan_out_node(state: ResearchState, config: RunnableConfig | None = Non
     # ...
 ```
 
+## Release Workflow
+
+### Pre-work (before starting a new version)
+
+1. **Verify baseline** — tests pass, lint clean, working tree clean
+   ```bash
+   .venv/Scripts/python.exe -m pytest tests/ -v
+   .venv/Scripts/python.exe -m ruff check . && .venv/Scripts/python.exe -m ruff format --check .
+   git status
+   ```
+2. **Read current state** — `CLAUDE.md` (version, test count, deferred items), `CHANGELOG.md`
+3. **Plan scope** — define features, estimate commits, identify files to touch
+4. **Create task list** — track progress through the implementation
+
+### During work
+
+- Commit in logical units (type first, then module, then tests, then wiring)
+- Run tests after each feature, not just at the end
+- Run lint before committing — `ruff format` auto-fixes most issues
+- Use conventional commit prefixes: `feat`, `fix`, `test`, `docs`, `chore`
+- Live test when the full pipeline is wired up
+
+### Post-work (after completing a version)
+
+1. **Final verification** — full test suite + lint
+2. **Update CLAUDE.md** — version, test count, architecture diagram, new files, CLI flags, config vars, deferred items
+3. **Update CHANGELOG.md** — new version section with Added/Changed/Fixed
+4. **Update .env.example** — if new config vars were added
+5. **Commit docs** — single `docs(vN)` commit for all doc updates
+6. **Tag** — `git tag vX.Y.Z`
+7. **Push** — `git push origin main --tags`
+8. **PR** — create with summary, stats, live test results, test plan checklist
+9. **Merge + clean up** — merge PR, delete feature branch (local + remote)
+10. **Update session memory** — version, test count, what shipped, deferred items
+
+### Artifacts to clean up
+
+- `runs/` — event log JSONL from test runs (gitignored)
+- `output/` — generated reports from test runs (gitignored except .gitkeep)
+- `stderr.log` — streaming output captured during test runs (not tracked)
+- Stale checkpoint DBs in `checkpoints/` (gitignored)
+
 ## Adding a New Node
 
 1. Define any new types in `contracts.py`
