@@ -227,7 +227,9 @@ def build_graph(
         return await synthesize(state, opus_caller)
 
     async def critique_node(state: ResearchState) -> dict:
-        return await critique(state, sonnet_caller)
+        return await critique(
+            state, sonnet_caller, convergence_threshold=settings.convergence_threshold
+        )
 
     async def rollup_budget_node(state: ResearchState) -> dict:
         """Roll up token_usage list into totals for budget tracking."""

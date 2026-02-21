@@ -98,7 +98,12 @@ async def _grade_dimension(
     return scores_by_id, usage
 
 
-async def critique(state: ResearchState, caller: AgentCaller) -> dict:
+async def critique(
+    state: ResearchState,
+    caller: AgentCaller,
+    *,
+    convergence_threshold: float = 0.05,
+) -> dict:
     """Three-grader chain: evaluate sections then determine convergence."""
     research_question = state["research_question"]
     section_drafts = state.get("section_drafts", [])
@@ -181,7 +186,9 @@ async def critique(state: ResearchState, caller: AgentCaller) -> dict:
     prev_history = state.get("iteration_history", [])
     prev_avg = prev_history[-1]["avg_confidence"] if prev_history else 0.0
 
-    replan, reason = should_replan(updated_sections, prev_avg=prev_avg)
+    replan, reason = should_replan(
+        updated_sections, prev_avg=prev_avg, delta_threshold=convergence_threshold
+    )
 
     # Force convergence conditions
     if current_iteration >= max_iterations:

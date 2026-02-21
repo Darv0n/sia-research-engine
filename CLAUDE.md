@@ -82,6 +82,7 @@ DiversityMetrics, SectionConfidenceSnapshot, IterationRecord, ResearchMemory
 - `CHECKPOINT_BACKEND` — `sqlite` (default), `postgres`, or `none`
 - `MEMORY_DIR` — Path to memory storage directory (default: `memory/`)
 - `POSTGRES_DSN` — PostgreSQL connection string (required when `CHECKPOINT_BACKEND=postgres`)
+- `CONVERGENCE_THRESHOLD` — Minimum confidence delta for continued iteration (default: `0.05`)
 
 ## Testing
 
