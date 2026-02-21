@@ -79,6 +79,10 @@ On subsequent iterations, the synthesizer refines rather than regenerates — pr
              |      +--------+---------+
              |               |
              |      +--------v---------+
+             |      |  [plan_gate]     |  HITL interrupt (--mode hitl only)
+             |      +--------+---------+
+             |               |
+             |      +--------v---------+
              |      |  search (fan-out)|  Parallel per sub-query
              |      +--------+---------+
              |               |
@@ -112,6 +116,10 @@ On subsequent iterations, the synthesizer refines rather than regenerates — pr
              |        /              \
              +-------+      +---------v--------+
                              |     report       |  Markdown render
+                             +---------+--------+
+                                       |
+                             +---------v--------+
+                             | [report_gate]    |  HITL interrupt (--mode hitl only)
                              +---------+--------+
                                        |
                                       END
@@ -185,8 +193,12 @@ Generates structured Markdown with:
 - YAML frontmatter (metadata, iteration count, token usage, cost)
 - Themed sections with inline citations
 - Confidence heat map table
+- Confidence trends with sparklines across iterations
+- Source diversity metrics (HHI, domain count, authority mix)
+- Contradictions detected between sources
 - Research gaps section
 - Deduplicated, sequentially-numbered bibliography
+- Evidence map (claim-to-source mapping table with authority and confidence)
 
 ## Configuration
 
@@ -212,6 +224,8 @@ All settings are controlled via environment variables. Copy `.env.example` to `.
 | `CHECKPOINT_BACKEND` | `sqlite` | Checkpoint backend: `sqlite`, `postgres`, or `none` |
 | `POSTGRES_DSN` | *(optional)* | PostgreSQL connection string (required when backend=postgres) |
 | `MEMORY_DIR` | `memory/` | Path to memory storage directory |
+| `RUN_LOG_DIR` | `runs/` | Path to run event log directory |
+| `MODE` | `auto` | Execution mode: `auto` or `hitl` (human-in-the-loop gates) |
 
 ## Search Backends
 
@@ -300,6 +314,7 @@ usage: deep-research-swarm [-h] [--max-iterations N] [--token-budget N]
                            [--resume THREAD_ID] [--list-threads]
                            [--dump-state THREAD_ID] [--no-memory]
                            [--list-memories] [--export-mcp]
+                           [--no-log] [--mode {auto,hitl}]
                            [question]
 
 positional arguments:
@@ -320,6 +335,8 @@ options:
   --no-memory           Disable memory store/retrieval for this run
   --list-memories       Print stored memory records and exit
   --export-mcp          Export memory in MCP entity format
+  --no-log              Disable run event logging
+  --mode {auto,hitl}    Execution mode (auto=default, hitl=human-in-the-loop gates)
 ```
 
 ### Examples
@@ -354,6 +371,15 @@ python -m deep_research_swarm --no-memory "Ephemeral research question"
 
 # View stored research memories
 python -m deep_research_swarm --list-memories
+
+# Human-in-the-loop mode (pause at plan and report for review)
+python -m deep_research_swarm --mode hitl "Risks of artificial general intelligence"
+
+# Resume through an HITL gate after review
+python -m deep_research_swarm --resume research-20260221-212856-cd2e
+
+# Run without event logging
+python -m deep_research_swarm --no-log "Quick ephemeral question"
 ```
 
 ## Project Structure
@@ -400,26 +426,28 @@ deep-research-swarm/
 │   │   ├── renderer.py          # Markdown report generation
 │   │   ├── citations.py         # Dedup, renumber, bibliography
 │   │   ├── heatmap.py           # Confidence heat map table
-│   │   └── trends.py            # Confidence sparklines across iterations
+│   │   ├── trends.py            # Confidence sparklines across iterations
+│   │   └── evidence_map.py      # Claim-to-source mapping table
 │   │
 │   ├── memory/
 │   │   ├── store.py             # JSON-backed cross-session memory store
 │   │   ├── extract.py           # Deterministic memory record extraction
 │   │   └── mcp_export.py        # MCP entity format export
 │   │
+│   ├── event_log/
+│   │   └── writer.py            # JSONL run event logging
+│   │
 │   ├── utils/
 │   │   └── text.py              # Jaccard score, dedup utilities
 │   │
-│   ├── streaming.py             # StreamDisplay for astream progress
-│   │
-│   └── budget/
-│       └── tracker.py           # Token budget tracking
+│   └── streaming.py             # StreamDisplay for astream progress
 │
-├── tests/                       # 196 tests across 16 modules
+├── tests/                       # 230 tests across 20 modules
 ├── docker/                      # SearXNG Docker configuration
 ├── output/                      # Generated reports (gitignored)
 ├── checkpoints/                 # SQLite checkpoint DB (gitignored)
 ├── memory/                      # Research memory store (gitignored)
+├── runs/                        # Run event logs (gitignored)
 └── .github/workflows/ci.yml    # Lint + test matrix (3.11, 3.12)
 ```
 
@@ -441,7 +469,7 @@ pytest tests/test_rrf.py -v
 python -m deep_research_swarm "What is quantum entanglement?"
 ```
 
-**196 tests** covering:
+**230 tests** covering:
 
 | Module | Tests | Coverage |
 |--------|-------|----------|
@@ -465,6 +493,10 @@ python -m deep_research_swarm "What is quantum entanglement?"
 | Memory store | 11 | Add/list, search, persistence, graceful degradation |
 | Memory extract | 3 | Full state, empty state, missing fields |
 | Text utils | 9 | Jaccard score, is_duplicate, custom thresholds |
+| Event log | 11 | Write/read roundtrip, append, corruption, make_event |
+| Evidence map | 13 | Claim extraction, citation mapping, rendering, escaping |
+| HITL gates | 10 | Auto/hitl mode, gate wiring, config validation |
+| MCP export | 7 | Entity structure, observations, metadata, empty input |
 | Integration | 1 | Mocked LLM planner e2e |
 
 All tests run without network access, API keys, or Docker — LLM calls are mocked.
@@ -522,7 +554,8 @@ No inheritance required — the Protocol uses structural subtyping (PEP 544).
 - [x] **V3** — Reports & observability: streaming output, confidence trends, search caching, contradiction detection, source diversity scoring
 - [x] **V4** — Persistence & resume: AsyncSqliteSaver checkpointing, `--resume` CLI flag, PDF extraction cascade, PostgresSaver option
 - [x] **V5** — Memory & state: cross-session research memory (JSON-backed Jaccard search), `--dump-state`, `--list-memories`, `--export-mcp`, extracted text utilities, memory lifecycle in CLI
-- [ ] **V6** — Planned: embedding-based memory retrieval (LangGraph Store / LanceDB), multi-hop recursive research spawning (Send API), academic search backends (OpenAlex, Semantic Scholar, arXiv), memory pruning
+- [x] **V6** — Forensic mode: human-in-the-loop gates (`--mode hitl` with LangGraph `interrupt()`), run event log (JSONL per run), evidence map appendix (claim-to-source mapping), robust JSON extraction for agent responses
+- [ ] **V7** — Planned: MCP Memory server (live, not just export), memory pruning (auto-cleanup old/low-value records), embedding-based retrieval (replace Jaccard with vector similarity)
 
 ## License
 

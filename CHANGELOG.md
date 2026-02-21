@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.6.1] - 2026-02-21
+
+### Fixed
+- Robust JSON extraction in `call_json` — new `_extract_json()` helper finds JSON objects embedded in prose responses using brace-depth tracking
+- Contradiction detector prompt hardened with strict JSON-only directive to prevent prose output
+- Contradiction detector `max_tokens` increased 4096 -> 8192 for safety margin with large source sets
+
 ## [0.6.0] - 2026-02-21
 
 ### Added
