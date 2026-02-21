@@ -152,6 +152,20 @@ def parse_args() -> argparse.Namespace:
         default=False,
         help="Export memory records in MCP entity format and exit",
     )
+    # V6 flags
+    parser.add_argument(
+        "--no-log",
+        action="store_true",
+        default=False,
+        help="Disable run event logging",
+    )
+    parser.add_argument(
+        "--mode",
+        type=str,
+        choices=["auto", "hitl"],
+        default=None,
+        help="Execution mode: 'auto' (default) or 'hitl' (human-in-the-loop gates)",
+    )
     args = parser.parse_args()
 
     # Validate: need question, --resume, or a standalone flag
@@ -377,6 +391,10 @@ async def run(args: argparse.Namespace) -> None:
     project_root = Path(__file__).resolve().parent.parent
     db_path = str(project_root / settings.checkpoint_db)
     memory_dir = str(project_root / settings.memory_dir)
+    run_log_dir = str(project_root / settings.run_log_dir)
+
+    # Resolve mode (CLI flag overrides config)
+    mode = args.mode or settings.mode
 
     # --- Standalone operations (no graph execution) ---
 
@@ -408,7 +426,12 @@ async def run(args: argparse.Namespace) -> None:
             sys.exit(1)
 
         async with _make_checkpointer(settings, db_path) as checkpointer:
-            graph = build_graph(settings, enable_cache=not args.no_cache, checkpointer=checkpointer)
+            graph = build_graph(
+                settings,
+                enable_cache=not args.no_cache,
+                checkpointer=checkpointer,
+                mode=mode,
+            )
             config = {"configurable": {"thread_id": args.resume}}
 
             snapshot = await graph.aget_state(config=config)
@@ -445,6 +468,11 @@ async def run(args: argparse.Namespace) -> None:
     backends = args.backends or settings.available_backends()
     max_iter = args.max_iterations or settings.max_iterations
     budget = args.token_budget or settings.token_budget
+
+    # Event log (V6)
+    event_log = None
+    if not args.no_log:
+        from deep_research_swarm.event_log.writer import EventLog
 
     # Memory retrieval (pre-computed context for planner)
     use_memory = not args.no_memory
@@ -487,12 +515,21 @@ async def run(args: argparse.Namespace) -> None:
     }
 
     use_checkpointer = settings.checkpoint_backend != "none"
+    thread_id = _generate_thread_id()
+
+    # Create event log after thread_id is known
+    if not args.no_log:
+        event_log = EventLog(run_log_dir, thread_id)
 
     if use_checkpointer:
-        thread_id = _generate_thread_id()
-
         async with _make_checkpointer(settings, db_path) as checkpointer:
-            graph = build_graph(settings, enable_cache=not args.no_cache, checkpointer=checkpointer)
+            graph = build_graph(
+                settings,
+                enable_cache=not args.no_cache,
+                checkpointer=checkpointer,
+                event_log=event_log,
+                mode=mode,
+            )
             config = {"configurable": {"thread_id": thread_id}}
 
             print(f"Thread: {thread_id}", file=sys.stderr)
@@ -510,8 +547,12 @@ async def run(args: argparse.Namespace) -> None:
             )
     else:
         # No checkpointing
-        thread_id = _generate_thread_id()
-        graph = build_graph(settings, enable_cache=not args.no_cache)
+        graph = build_graph(
+            settings,
+            enable_cache=not args.no_cache,
+            event_log=event_log,
+            mode=mode,
+        )
         config = {}
 
         print(f"Researching: {args.question}", file=sys.stderr)
@@ -528,6 +569,10 @@ async def run(args: argparse.Namespace) -> None:
         )
 
     _output_report(result, output_path_override=args.output, question=args.question)
+
+    # Print event log path
+    if event_log is not None:
+        print(f"Event log: {event_log.path}", file=sys.stderr)
 
     # Memory storage (after successful report output)
     if use_memory and store is not None:

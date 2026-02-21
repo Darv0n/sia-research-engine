@@ -44,6 +44,7 @@ research-output/
 checkpoints/
 .cache/
 /memory/
+runs/
 
 # Claude Code
 .claude/
