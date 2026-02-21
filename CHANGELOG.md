@@ -4,6 +4,30 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.6.0] - 2026-02-21
+
+### Added
+- **HITL mode**: `--mode hitl` adds LangGraph `interrupt()` gates after plan and report nodes
+  - `plan_gate`: review research plan before search begins
+  - `report_gate`: review final report before accepting
+  - Resume with `--resume THREAD_ID` to continue through gates
+  - Graceful fallback to auto mode when no checkpointer is present
+- **Run event log**: append-only JSONL per run at `runs/<thread_id>/events.jsonl`
+  - `RunEvent` TypedDict: node name, iteration, timestamp, elapsed time, token/cost summary
+  - `EventLog` class with emit/read/make_event factory
+  - `_wrap_with_logging()` wraps node closures for transparent event capture
+  - `--no-log` CLI flag to disable
+- **Evidence map appendix**: post-synthesis claim-to-source mapping in reports
+  - Extracts cited sentences from section drafts, maps to citation metadata
+  - Markdown table: Claim | Source | Authority | Confidence
+  - Rendered after Bibliography section
+- Config: `RUN_LOG_DIR`, `MODE` settings with validation
+- CLI: `--mode` flag (auto/hitl), `--no-log` flag
+
+### Changed
+- `build_graph()` accepts `event_log` and `mode` parameters
+- Node map pattern for clean wrapping/extension in builder.py
+
 ## [0.5.1] - 2026-02-21
 
 ### Fixed

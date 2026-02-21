@@ -2,16 +2,17 @@
 
 ## Current State
 
-- **Version**: V5 complete (memory, state dump, PostgresSaver)
-- **Tests**: 196 passing (run with `.venv/Scripts/python.exe -m pytest tests/ -v`)
+- **Version**: V6 complete (forensic mode: HITL, event log, evidence map)
+- **Tests**: 230 passing (run with `.venv/Scripts/python.exe -m pytest tests/ -v`)
 - **Repo**: https://github.com/Darv0n/deep-research-swarm.git
 
 ## Architecture
 
 LangGraph StateGraph orchestrating multi-agent research pipeline:
 ```
-health_check -> plan -> search -> extract -> score -> contradiction -> synthesize -> critique -> rollup_budget -> [converge?] -> report
+health_check -> plan -> [plan_gate?] -> search -> extract -> score -> contradiction -> synthesize -> critique -> rollup_budget -> [converge?] -> report -> [report_gate?]
 ```
+Gate nodes (`plan_gate`, `report_gate`) only present when `--mode hitl` and checkpointer is active.
 
 ## Key Files
 
@@ -44,10 +45,20 @@ health_check -> plan -> search -> extract -> score -> contradiction -> synthesiz
 - `memory/mcp_export.py` — `export_to_mcp_format()` (MCP entity format)
 - `__main__.py` — `_make_checkpointer()` async context manager, memory lifecycle, 4 new CLI flags
 
+### V6 Additions
+- `contracts.py` — `RunEvent` TypedDict
+- `config.py` — `run_log_dir`, `mode` settings with validation
+- `event_log/writer.py` — `EventLog` class (JSONL-backed, emit/read/make_event)
+- `graph/builder.py` — `event_log` + `mode` params, `_wrap_with_logging()`, HITL gate nodes, conditional edge wiring
+- `reporting/evidence_map.py` — `extract_claims()` + `render_evidence_map()` (claim-to-source mapping)
+- `reporting/renderer.py` — Evidence Map section after Bibliography
+- `__main__.py` — `--mode`, `--no-log` flags, interrupt handling, Command resume
+- `streaming.py` — `plan_gate`, `report_gate` labels
+
 ### TypedDicts in contracts.py
 SubQuery, SearchResult, ExtractedContent, ScoredDocument, GraderScores,
 SectionDraft, Citation, ResearchGap, TokenUsage, Contradiction,
-DiversityMetrics, SectionConfidenceSnapshot, IterationRecord, ResearchMemory
+DiversityMetrics, SectionConfidenceSnapshot, RunEvent, IterationRecord, ResearchMemory
 
 ### State Fields (graph/state.py)
 - Accumulating (operator.add): search_backends, perspectives, sub_queries, search_results, extracted_contents, token_usage, iteration_history
@@ -75,6 +86,8 @@ DiversityMetrics, SectionConfidenceSnapshot, IterationRecord, ResearchMemory
 - `--no-memory` — Disable memory store/retrieval for this run
 - `--list-memories` — Print stored memory records
 - `--export-mcp` — Export memory in MCP entity format
+- `--no-log` — Disable run event logging
+- `--mode auto|hitl` — Execution mode (auto = default, hitl = human-in-the-loop gates)
 
 ## Config Vars
 
@@ -83,16 +96,18 @@ DiversityMetrics, SectionConfidenceSnapshot, IterationRecord, ResearchMemory
 - `MEMORY_DIR` — Path to memory storage directory (default: `memory/`)
 - `POSTGRES_DSN` — PostgreSQL connection string (required when `CHECKPOINT_BACKEND=postgres`)
 - `CONVERGENCE_THRESHOLD` — Minimum confidence delta for continued iteration (default: `0.05`)
+- `RUN_LOG_DIR` — Path to run event log directory (default: `runs/`)
+- `MODE` — Execution mode: `auto` (default) or `hitl` (human-in-the-loop gates)
 
 ## Testing
 
 ```bash
-.venv/Scripts/python.exe -m pytest tests/ -v                    # All 196 tests
+.venv/Scripts/python.exe -m pytest tests/ -v                    # All 230 tests
 .venv/Scripts/python.exe -m pytest tests/ -k "not integration"  # Unit only
 .venv/Scripts/python.exe -m ruff check . && .venv/Scripts/python.exe -m ruff format --check .
 ```
 
-## Deferred to V6
+## Deferred to V7
 
 - **MCP Memory server** — live MCP server for cross-session memory (V5 added export-only)
 - **Memory pruning** — automatic cleanup of old/low-value memory records
