@@ -14,6 +14,7 @@ from deep_research_swarm.reporting.citations import (
     build_bibliography,
     deduplicate_and_renumber,
 )
+from deep_research_swarm.reporting.evidence_map import extract_claims, render_evidence_map
 from deep_research_swarm.reporting.heatmap import render_confidence_heatmap
 from deep_research_swarm.reporting.trends import render_confidence_trends
 
@@ -133,6 +134,16 @@ def render_report(state: "ResearchState") -> str:
         lines.append("")
         lines.append(build_bibliography(citations))
         lines.append("")
+
+    # --- Evidence Map ---
+    claims = extract_claims(section_drafts, citations)
+    if claims:
+        evidence_table = render_evidence_map(claims)
+        if evidence_table:
+            lines.append("## Evidence Map")
+            lines.append("")
+            lines.append(evidence_table)
+            lines.append("")
 
     # --- Metadata ---
     lines.append("---")
