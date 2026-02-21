@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.6.2] - 2026-02-21
+
+### Fixed
+- Opus-to-Sonnet fallback on 529 (OverloadedError) — `AgentCaller` catches overloaded errors with exponential backoff, falls back to Sonnet after retries exhausted
+- Mode persistence in checkpoint state — `ResearchState` now stores `mode` field, resume path reads stored mode so `--mode hitl` no longer required on every `--resume`
+- Suppress LangGraph `RunnableConfig` typing advisory warning during graph compilation
+
+### Added
+- `fallback_model` parameter on `AgentCaller` (wired as `sonnet_model` for opus caller)
+- `model_override` support in `_track_usage()` for correct fallback pricing
+- 9 new tests: fallback trigger, no-fallback on generic errors, no-fallback when unconfigured, correct sonnet pricing, stderr warnings, mode in state, warning suppression
+
 ## [0.6.1] - 2026-02-21
 
 ### Fixed
