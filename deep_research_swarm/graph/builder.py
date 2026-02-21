@@ -351,6 +351,44 @@ def build_graph(
     if event_log is not None:
         node_map = {name: _wrap_with_logging(name, fn, event_log) for name, fn in node_map.items()}
 
+    # --- HITL gate nodes (only when mode=hitl + checkpointer exists) ---
+
+    hitl_mode = mode == "hitl" and checkpointer is not None
+
+    if hitl_mode:
+        from langgraph.types import interrupt
+
+        async def plan_gate_node(state: ResearchState) -> dict:
+            """Interrupt after plan for human review of research plan."""
+            interrupt(
+                {
+                    "gate": "plan_gate",
+                    "iteration": state.get("current_iteration", 0),
+                    "perspectives": state.get("perspectives", []),
+                    "sub_queries": [sq["question"] for sq in state.get("sub_queries", [])],
+                    "message": "Review the research plan. Resume to continue.",
+                }
+            )
+            return {}
+
+        async def report_gate_node(state: ResearchState) -> dict:
+            """Interrupt after report for human review of final output."""
+            report = state.get("final_report", "")
+            interrupt(
+                {
+                    "gate": "report_gate",
+                    "iterations": len(state.get("iteration_history", [])),
+                    "cost": state.get("total_cost_usd", 0.0),
+                    "report_preview": report[:500],
+                    "report_length": len(report),
+                    "message": "Review the final report. Resume to accept.",
+                }
+            )
+            return {}
+
+        node_map["plan_gate"] = plan_gate_node
+        node_map["report_gate"] = report_gate_node
+
     # --- Build graph ---
 
     graph = StateGraph(ResearchState)
@@ -362,7 +400,13 @@ def build_graph(
     # Wire edges: health_check -> plan -> ... -> score -> contradiction -> synthesize -> ...
     graph.set_entry_point("health_check")
     graph.add_edge("health_check", "plan")
-    graph.add_edge("plan", "search")
+
+    if hitl_mode:
+        graph.add_edge("plan", "plan_gate")
+        graph.add_edge("plan_gate", "search")
+    else:
+        graph.add_edge("plan", "search")
+
     graph.add_edge("search", "extract")
     graph.add_edge("extract", "score")
     graph.add_edge("score", "contradiction")
@@ -377,6 +421,10 @@ def build_graph(
         {"report": "report", "plan": "plan"},
     )
 
-    graph.add_edge("report", END)
+    if hitl_mode:
+        graph.add_edge("report", "report_gate")
+        graph.add_edge("report_gate", END)
+    else:
+        graph.add_edge("report", END)
 
     return graph.compile(checkpointer=checkpointer)

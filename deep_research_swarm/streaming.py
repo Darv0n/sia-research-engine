@@ -17,6 +17,8 @@ NODE_LABELS: dict[str, str] = {
     "rollup_budget": "Rolling up budget",
     "report": "Generating report",
     "contradiction": "Detecting contradictions",
+    "plan_gate": "Awaiting plan approval",
+    "report_gate": "Awaiting report approval",
 }
 
 
