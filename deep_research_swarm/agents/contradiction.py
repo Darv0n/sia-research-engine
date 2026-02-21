@@ -67,7 +67,7 @@ async def detect_contradictions(
         system=CONTRADICTION_SYSTEM,
         messages=[{"role": "user", "content": user_content}],
         agent_name="contradiction_detector",
-        max_tokens=2048,
+        max_tokens=4096,
     )
 
     contradictions: list[Contradiction] = []
