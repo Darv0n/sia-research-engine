@@ -186,13 +186,18 @@ async def _execute(
     *,
     no_stream: bool,
     verbose: bool,
-) -> dict:
+) -> dict | None:
     """Execute the graph with streaming or blocking invocation.
 
-    Returns the final state dict.
+    Returns the final state dict, or None if interrupted (HITL gate).
     """
     if no_stream:
-        return await graph.ainvoke(input_state, config=config)
+        result = await graph.ainvoke(input_state, config=config)
+        final_state = await graph.aget_state(config=config)
+        if final_state and final_state.next:
+            _print_interrupt_from_state(final_state, config)
+            return None
+        return result
 
     display = StreamDisplay(verbose=verbose)
 
@@ -202,17 +207,46 @@ async def _execute(
         stream_mode=["updates", "custom"],
     ):
         if isinstance(event, tuple) and len(event) == 2:
-            mode, payload = event
-            if mode == "updates":
+            stream_mode, payload = event
+            if stream_mode == "updates":
                 display.handle_update(payload)
-            elif mode == "custom":
+            elif stream_mode == "custom":
                 display.handle_custom(payload)
 
     # Retrieve final state via checkpoint
     final_state = await graph.aget_state(config=config)
+    if final_state and final_state.next:
+        _print_interrupt_from_state(final_state, config)
+        return None
     if final_state and hasattr(final_state, "values"):
         return final_state.values
     return {}
+
+
+def _print_interrupt_from_state(state_snapshot, config: dict) -> None:
+    """Print interrupt payload and resume instructions to stderr."""
+    thread_id = config.get("configurable", {}).get("thread_id", "UNKNOWN")
+
+    # Extract interrupt payload from tasks
+    tasks = getattr(state_snapshot, "tasks", ())
+    for task in tasks:
+        interrupts = getattr(task, "interrupts", ())
+        for intr in interrupts:
+            payload = getattr(intr, "value", intr)
+            gate = payload.get("gate", "unknown") if isinstance(payload, dict) else "unknown"
+            message = payload.get("message", "") if isinstance(payload, dict) else str(payload)
+            print(f"\n--- HITL Gate: {gate} ---", file=sys.stderr)
+            if isinstance(payload, dict):
+                for k, v in payload.items():
+                    if k not in ("gate", "message"):
+                        if isinstance(v, list) and len(v) > 5:
+                            print(f"  {k}: [{len(v)} items]", file=sys.stderr)
+                        else:
+                            print(f"  {k}: {v}", file=sys.stderr)
+            if message:
+                print(f"  {message}", file=sys.stderr)
+
+    print(f"\nResume with: python -m deep_research_swarm --resume {thread_id}", file=sys.stderr)
 
 
 def _output_report(result: dict, *, output_path_override: str | None, question: str) -> None:
@@ -446,15 +480,35 @@ async def run(args: argparse.Namespace) -> None:
                 _output_report(snapshot.values, output_path_override=args.output, question=question)
                 return
 
-            # Incomplete run — resume from last checkpoint (no memory storage)
-            print(f"Resuming thread '{args.resume}' from node(s): {snapshot.next}", file=sys.stderr)
+            # Check if paused at a HITL gate — resume with Command
+            paused_nodes = list(snapshot.next)
+            is_gate = any("gate" in n for n in paused_nodes)
+
+            if is_gate:
+                from langgraph.types import Command
+
+                print(
+                    f"Resuming through HITL gate: {paused_nodes}",
+                    file=sys.stderr,
+                )
+                resume_input = Command(resume=True)
+            else:
+                print(
+                    f"Resuming thread '{args.resume}' from node(s): {paused_nodes}",
+                    file=sys.stderr,
+                )
+                resume_input = None  # None input resumes from checkpoint
+
             result = await _execute(
                 graph,
-                None,  # None input resumes from checkpoint
+                resume_input,
                 config,
                 no_stream=args.no_stream,
                 verbose=args.verbose,
             )
+            if result is None:
+                # Hit another HITL gate
+                return
             question = result.get("research_question", args.resume)
             _output_report(result, output_path_override=args.output, question=question)
         return
@@ -567,6 +621,12 @@ async def run(args: argparse.Namespace) -> None:
             no_stream=args.no_stream,
             verbose=args.verbose,
         )
+
+    if result is None:
+        # Interrupted at HITL gate
+        if event_log is not None:
+            print(f"Event log: {event_log.path}", file=sys.stderr)
+        return
 
     _output_report(result, output_path_override=args.output, question=args.question)
 
