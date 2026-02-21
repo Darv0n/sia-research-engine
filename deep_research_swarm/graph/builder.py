@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import inspect
 import time
+import warnings
 from typing import TYPE_CHECKING
 
 from langchain_core.runnables import RunnableConfig
@@ -130,6 +131,7 @@ def build_graph(
         api_key=settings.anthropic_api_key,
         model=settings.opus_model,
         max_concurrent=settings.max_concurrent_requests,
+        fallback_model=settings.sonnet_model,
     )
     sonnet_caller = AgentCaller(
         api_key=settings.anthropic_api_key,
@@ -393,9 +395,15 @@ def build_graph(
 
     graph = StateGraph(ResearchState)
 
-    # Add nodes
-    for name, fn in node_map.items():
-        graph.add_node(name, fn)
+    # Add nodes (suppress LangGraph config-typing advisory)
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "ignore",
+            message="The 'config' parameter should be typed as",
+            category=UserWarning,
+        )
+        for name, fn in node_map.items():
+            graph.add_node(name, fn)
 
     # Wire edges: health_check -> plan -> ... -> score -> contradiction -> synthesize -> ...
     graph.set_entry_point("health_check")

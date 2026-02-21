@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import asyncio
 import json
+import sys
 from datetime import datetime, timezone
 
 import anthropic
+from anthropic._exceptions import OverloadedError
 
 from deep_research_swarm.contracts import TokenUsage
 
@@ -65,8 +67,10 @@ class AgentCaller:
         model: str,
         max_concurrent: int = 5,
         max_retries: int = 3,
+        fallback_model: str | None = None,
     ) -> None:
         self.model = model
+        self.fallback_model = fallback_model
         self._client = anthropic.AsyncAnthropic(api_key=api_key)
         self._semaphore = asyncio.Semaphore(max_concurrent)
         self._max_retries = max_retries
@@ -104,6 +108,7 @@ class AgentCaller:
         temperature: float,
     ) -> tuple[str, TokenUsage]:
         last_error = None
+        overloaded = False
 
         for attempt in range(self._max_retries):
             try:
@@ -123,6 +128,16 @@ class AgentCaller:
                 usage = self._track_usage(response, agent_name)
                 return text, usage
 
+            except OverloadedError:
+                overloaded = True
+                wait = 2 ** (attempt + 1)
+                print(
+                    f"WARNING: {self.model} overloaded (529), "
+                    f"retry {attempt + 1}/{self._max_retries} in {wait}s",
+                    file=sys.stderr,
+                )
+                await asyncio.sleep(wait)
+                last_error = "overloaded"
             except anthropic.RateLimitError:
                 wait = 2 ** (attempt + 1)
                 await asyncio.sleep(wait)
@@ -132,18 +147,47 @@ class AgentCaller:
                 if attempt < self._max_retries - 1:
                     await asyncio.sleep(1)
 
+        # Fallback: if overloaded and a fallback model is configured, try once
+        if overloaded and self.fallback_model:
+            print(
+                f"WARNING: {self.model} exhausted retries, "
+                f"falling back to {self.fallback_model} for {agent_name}",
+                file=sys.stderr,
+            )
+            try:
+                response = await self._client.messages.create(
+                    model=self.fallback_model,
+                    max_tokens=max_tokens,
+                    temperature=temperature,
+                    system=system,
+                    messages=messages,
+                )
+
+                text = ""
+                for block in response.content:
+                    if block.type == "text":
+                        text += block.text
+
+                usage = self._track_usage(response, agent_name, model_override=self.fallback_model)
+                return text, usage
+            except anthropic.APIError as e:
+                last_error = f"fallback ({self.fallback_model}) also failed: {e}"
+
         raise RuntimeError(f"AgentCaller failed after {self._max_retries} retries: {last_error}")
 
-    def _track_usage(self, response, agent_name: str) -> TokenUsage:
+    def _track_usage(
+        self, response, agent_name: str, *, model_override: str | None = None
+    ) -> TokenUsage:
         input_tokens = response.usage.input_tokens
         output_tokens = response.usage.output_tokens
 
-        pricing = _PRICING.get(self.model, {"input": 3.0, "output": 15.0})
+        model = model_override or self.model
+        pricing = _PRICING.get(model, {"input": 3.0, "output": 15.0})
         cost = (input_tokens * pricing["input"] + output_tokens * pricing["output"]) / 1_000_000
 
         usage = TokenUsage(
             agent=agent_name,
-            model=self.model,
+            model=model,
             input_tokens=input_tokens,
             output_tokens=output_tokens,
             cost_usd=round(cost, 6),

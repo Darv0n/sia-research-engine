@@ -460,18 +460,33 @@ async def run(args: argparse.Namespace) -> None:
             sys.exit(1)
 
         async with _make_checkpointer(settings, db_path) as checkpointer:
+            # Peek at checkpoint with a minimal auto-mode graph to read stored mode
+            peek_graph = build_graph(
+                settings,
+                enable_cache=not args.no_cache,
+                checkpointer=checkpointer,
+                mode="auto",
+            )
+            config = {"configurable": {"thread_id": args.resume}}
+
+            snapshot = await peek_graph.aget_state(config=config)
+            if not snapshot or not snapshot.values:
+                print(f"ERROR: No checkpoint found for thread '{args.resume}'", file=sys.stderr)
+                sys.exit(1)
+
+            # Resolve mode: CLI flag takes priority, then stored, then "auto"
+            stored_mode = snapshot.values.get("mode", "auto")
+            resolved_mode = args.mode or stored_mode
+            if resolved_mode != "auto":
+                print(f"Mode: {resolved_mode} (stored: {stored_mode})", file=sys.stderr)
+
+            # Rebuild graph with the resolved mode (may add/remove gate nodes)
             graph = build_graph(
                 settings,
                 enable_cache=not args.no_cache,
                 checkpointer=checkpointer,
-                mode=mode,
+                mode=resolved_mode,
             )
-            config = {"configurable": {"thread_id": args.resume}}
-
-            snapshot = await graph.aget_state(config=config)
-            if not snapshot or not snapshot.values:
-                print(f"ERROR: No checkpoint found for thread '{args.resume}'", file=sys.stderr)
-                sys.exit(1)
 
             if not snapshot.next:
                 # Completed run — display stored report
@@ -548,6 +563,7 @@ async def run(args: argparse.Namespace) -> None:
         "token_budget": budget,
         "search_backends": backends,
         "memory_context": memory_context,
+        "mode": mode,
         "perspectives": [],
         "sub_queries": [],
         "search_results": [],

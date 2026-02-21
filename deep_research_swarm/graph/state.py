@@ -92,3 +92,6 @@ class ResearchState(TypedDict):
     # History + Output
     iteration_history: Annotated[list[IterationRecord], operator.add]
     final_report: Annotated[str, _replace]
+
+    # Execution mode (persisted for resume)
+    mode: Annotated[str, _replace]
