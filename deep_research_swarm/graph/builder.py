@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import asyncio
+import inspect
+import time
+from typing import TYPE_CHECKING
 
 from langchain_core.runnables import RunnableConfig
 from langgraph.checkpoint.base import BaseCheckpointSaver
@@ -23,6 +26,9 @@ from deep_research_swarm.reporting.renderer import render_report
 from deep_research_swarm.scoring.diversity import compute_diversity
 from deep_research_swarm.scoring.rrf import build_scored_documents
 
+if TYPE_CHECKING:
+    from deep_research_swarm.event_log.writer import EventLog
+
 
 def _get_stream_writer(config: RunnableConfig | None) -> callable | None:
     """Safely extract a stream writer from LangGraph config, if available."""
@@ -36,11 +42,84 @@ def _get_stream_writer(config: RunnableConfig | None) -> callable | None:
         return None
 
 
+def _summarize_dict(d: dict) -> dict[str, int]:
+    """Produce a {field: count_or_len} summary for event logging."""
+    summary: dict[str, int] = {}
+    for key, val in d.items():
+        if isinstance(val, list):
+            summary[key] = len(val)
+        elif isinstance(val, str):
+            summary[key] = len(val)
+        elif isinstance(val, (int, float)):
+            summary[key] = 1
+        elif isinstance(val, dict):
+            summary[key] = len(val)
+    return summary
+
+
+def _wrap_with_logging(
+    node_name: str,
+    fn: callable,
+    event_log: EventLog,
+) -> callable:
+    """Wrap a node function to emit a RunEvent after execution."""
+    params = inspect.signature(fn).parameters
+    has_config = len(params) >= 2
+
+    if has_config:
+
+        async def logged_node(state: ResearchState, config: RunnableConfig | None = None) -> dict:
+            start = time.monotonic()
+            inputs_summary = _summarize_dict(state)
+            result = await fn(state, config)
+            elapsed = time.monotonic() - start
+            token_usage = result.get("token_usage", [])
+            tokens = sum(u.get("input_tokens", 0) + u.get("output_tokens", 0) for u in token_usage)
+            cost = sum(u.get("cost_usd", 0.0) for u in token_usage)
+            event = event_log.make_event(
+                node=node_name,
+                iteration=state.get("current_iteration", 0),
+                elapsed_s=elapsed,
+                inputs_summary=inputs_summary,
+                outputs_summary=_summarize_dict(result),
+                tokens=tokens,
+                cost=cost,
+            )
+            event_log.emit(event)
+            return result
+
+    else:
+
+        async def logged_node(state: ResearchState) -> dict:
+            start = time.monotonic()
+            inputs_summary = _summarize_dict(state)
+            result = await fn(state)
+            elapsed = time.monotonic() - start
+            token_usage = result.get("token_usage", [])
+            tokens = sum(u.get("input_tokens", 0) + u.get("output_tokens", 0) for u in token_usage)
+            cost = sum(u.get("cost_usd", 0.0) for u in token_usage)
+            event = event_log.make_event(
+                node=node_name,
+                iteration=state.get("current_iteration", 0),
+                elapsed_s=elapsed,
+                inputs_summary=inputs_summary,
+                outputs_summary=_summarize_dict(result),
+                tokens=tokens,
+                cost=cost,
+            )
+            event_log.emit(event)
+            return result
+
+    return logged_node
+
+
 def build_graph(
     settings: Settings,
     *,
     enable_cache: bool = True,
     checkpointer: BaseCheckpointSaver | None = None,
+    event_log: EventLog | None = None,
+    mode: str = "auto",
 ) -> CompiledStateGraph:
     """Build and compile the research graph.
 
@@ -254,21 +333,31 @@ def build_graph(
             return "report"
         return "plan"
 
+    # --- Event log wrapping ---
+
+    node_map: dict[str, callable] = {
+        "health_check": health_check_node,
+        "plan": plan_node,
+        "search": search_node,
+        "extract": extract_node,
+        "score": score_node,
+        "contradiction": contradiction_node,
+        "synthesize": synthesize_node,
+        "critique": critique_node,
+        "rollup_budget": rollup_budget_node,
+        "report": report_node,
+    }
+
+    if event_log is not None:
+        node_map = {name: _wrap_with_logging(name, fn, event_log) for name, fn in node_map.items()}
+
     # --- Build graph ---
 
     graph = StateGraph(ResearchState)
 
     # Add nodes
-    graph.add_node("health_check", health_check_node)
-    graph.add_node("plan", plan_node)
-    graph.add_node("search", search_node)
-    graph.add_node("extract", extract_node)
-    graph.add_node("score", score_node)
-    graph.add_node("contradiction", contradiction_node)
-    graph.add_node("synthesize", synthesize_node)
-    graph.add_node("critique", critique_node)
-    graph.add_node("rollup_budget", rollup_budget_node)
-    graph.add_node("report", report_node)
+    for name, fn in node_map.items():
+        graph.add_node(name, fn)
 
     # Wire edges: health_check -> plan -> ... -> score -> contradiction -> synthesize -> ...
     graph.set_entry_point("health_check")
