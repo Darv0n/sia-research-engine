@@ -3,7 +3,7 @@
 ## Current State
 
 - **Version**: V6 complete (forensic mode: HITL, event log, evidence map)
-- **Tests**: 230 passing (run with `.venv/Scripts/python.exe -m pytest tests/ -v`)
+- **Tests**: 239 passing (run with `.venv/Scripts/python.exe -m pytest tests/ -v`)
 - **Repo**: https://github.com/Darv0n/deep-research-swarm.git
 
 ## Architecture
@@ -102,7 +102,7 @@ DiversityMetrics, SectionConfidenceSnapshot, RunEvent, IterationRecord, Research
 ## Testing
 
 ```bash
-.venv/Scripts/python.exe -m pytest tests/ -v                    # All 230 tests
+.venv/Scripts/python.exe -m pytest tests/ -v                    # All 239 tests
 .venv/Scripts/python.exe -m pytest tests/ -k "not integration"  # Unit only
 .venv/Scripts/python.exe -m ruff check . && .venv/Scripts/python.exe -m ruff format --check .
 ```
