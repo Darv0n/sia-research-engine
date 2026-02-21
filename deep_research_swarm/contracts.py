@@ -145,6 +145,17 @@ class ResearchMemory(TypedDict):
     converged: bool
 
 
+class RunEvent(TypedDict):
+    node: str
+    iteration: int
+    ts: str  # ISO 8601
+    elapsed_s: float
+    inputs_summary: dict[str, int]  # field -> count/size
+    outputs_summary: dict[str, int]  # field -> count/size
+    tokens: int
+    cost: float
+
+
 class IterationRecord(TypedDict):
     iteration: int
     sub_queries_generated: int

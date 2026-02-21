@@ -77,6 +77,12 @@ class Settings:
     # PostgresSaver (V5)
     postgres_dsn: str = field(default_factory=lambda: os.environ.get("POSTGRES_DSN", ""))
 
+    # Run event log (V6)
+    run_log_dir: str = field(default_factory=lambda: os.environ.get("RUN_LOG_DIR", "runs/"))
+
+    # Execution mode (V6)
+    mode: str = field(default_factory=lambda: os.environ.get("MODE", "auto"))
+
     def available_backends(self) -> list[str]:
         """Return list of backends that have valid configuration."""
         backends = ["searxng"]  # Always available (local)
@@ -102,6 +108,8 @@ class Settings:
             )
         if self.checkpoint_backend == "postgres" and not self.postgres_dsn:
             errors.append("POSTGRES_DSN is required when CHECKPOINT_BACKEND is 'postgres'")
+        if self.mode not in ("auto", "hitl"):
+            errors.append(f"MODE must be 'auto' or 'hitl', got '{self.mode}'")
         return errors
 
 
