@@ -17,6 +17,44 @@ _PRICING: dict[str, dict[str, float]] = {
 }
 
 
+def _extract_json(text: str) -> str:
+    """Extract JSON from model response, handling fenced blocks and prose wrapping."""
+    cleaned = text.strip()
+
+    # Handle ```json fenced blocks
+    if cleaned.startswith("```"):
+        lines = cleaned.split("\n")
+        lines = lines[1:]  # Remove opening fence
+        json_lines = []
+        for line in lines:
+            if line.strip() == "```":
+                break
+            json_lines.append(line)
+        cleaned = "\n".join(json_lines).strip()
+
+    # If it already looks like JSON, return as-is
+    if cleaned.startswith("{") or cleaned.startswith("["):
+        return cleaned
+
+    # Try to find a JSON object embedded in prose
+    start = cleaned.find("{")
+    if start != -1:
+        # Find the matching closing brace by tracking depth
+        depth = 0
+        for i in range(start, len(cleaned)):
+            if cleaned[i] == "{":
+                depth += 1
+            elif cleaned[i] == "}":
+                depth -= 1
+                if depth == 0:
+                    return cleaned[start : i + 1]
+        # No matching close — return from start (will trigger truncation error)
+        return cleaned[start:]
+
+    # No JSON found at all — return empty string (will trigger parse error)
+    return ""
+
+
 class AgentCaller:
     """Wraps Anthropic API calls with token tracking and concurrency control."""
 
@@ -140,20 +178,8 @@ class AgentCaller:
             temperature=temperature,
         )
 
-        # Try to extract JSON from response (handles ```json blocks)
-        cleaned = text.strip()
-        if cleaned.startswith("```"):
-            # Find the closing fence and discard everything after it
-            lines = cleaned.split("\n")
-            # Remove opening fence line (```json or ```)
-            lines = lines[1:]
-            # Find the closing ``` and take only content before it
-            json_lines = []
-            for line in lines:
-                if line.strip() == "```":
-                    break
-                json_lines.append(line)
-            cleaned = "\n".join(json_lines)
+        # Try to extract JSON from response
+        cleaned = _extract_json(text)
 
         try:
             data = json.loads(cleaned)

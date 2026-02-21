@@ -32,7 +32,9 @@ Output STRICT JSON:
 }
 
 If no contradictions are found, return: {"contradictions": []}
-"""
+
+CRITICAL: Output ONLY the JSON object. No explanations, no analysis, no prose. \
+Start your response with { and end with }."""
 
 
 async def detect_contradictions(
@@ -67,7 +69,7 @@ async def detect_contradictions(
         system=CONTRADICTION_SYSTEM,
         messages=[{"role": "user", "content": user_content}],
         agent_name="contradiction_detector",
-        max_tokens=4096,
+        max_tokens=8192,
     )
 
     contradictions: list[Contradiction] = []
