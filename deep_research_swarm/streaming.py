@@ -11,6 +11,7 @@ NODE_LABELS: dict[str, str] = {
     "plan": "Planning research",
     "search": "Searching sources",
     "extract": "Extracting content",
+    "chunk_passages": "Chunking passages",
     "score": "Scoring documents",
     "synthesize": "Synthesizing report",
     "critique": "Critiquing sections",

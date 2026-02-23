@@ -22,6 +22,7 @@ from deep_research_swarm.agents.searcher import search_sub_query
 from deep_research_swarm.agents.synthesizer import synthesize
 from deep_research_swarm.backends.cache import SearchCache
 from deep_research_swarm.config import Settings
+from deep_research_swarm.extractors.chunker import chunk_all_documents
 from deep_research_swarm.graph.state import ResearchState
 from deep_research_swarm.reporting.renderer import render_report
 from deep_research_swarm.scoring.diversity import compute_diversity
@@ -276,6 +277,38 @@ def build_graph(
 
         return {"extracted_contents": extracted}
 
+    async def chunk_passages_node(state: ResearchState) -> dict:
+        """Chunk extracted documents into SourcePassage objects (V7, PR-10)."""
+        extracted_contents = state.get("extracted_contents", [])
+        scored_documents = state.get("scored_documents", [])
+
+        # On first iteration, scored_documents may be empty.
+        # Use search_results to build minimal scored docs for URL matching.
+        if not scored_documents:
+            search_results = state.get("search_results", [])
+            # Build temporary scored docs from search results for chunking
+            from deep_research_swarm.contracts import ScoredDocument, SourceAuthority
+
+            temp_scored: dict[str, ScoredDocument] = {}
+            for sr in search_results:
+                url = sr["url"]
+                if url not in temp_scored:
+                    temp_scored[url] = ScoredDocument(
+                        id=sr["id"],
+                        url=url,
+                        title=sr["title"],
+                        content="",
+                        rrf_score=0.0,
+                        authority=sr.get("authority", SourceAuthority.UNKNOWN),
+                        authority_score=0.0,
+                        combined_score=0.0,
+                        sub_query_ids=[sr["sub_query_id"]],
+                    )
+            scored_documents = list(temp_scored.values())
+
+        passages = chunk_all_documents(extracted_contents, scored_documents)
+        return {"source_passages": passages}
+
     async def score_node(state: ResearchState) -> dict:
         """Score and rank all documents using RRF + authority, compute diversity."""
         search_results = state.get("search_results", [])
@@ -342,6 +375,7 @@ def build_graph(
         "plan": plan_node,
         "search": search_node,
         "extract": extract_node,
+        "chunk_passages": chunk_passages_node,
         "score": score_node,
         "contradiction": contradiction_node,
         "synthesize": synthesize_node,
@@ -416,7 +450,8 @@ def build_graph(
         graph.add_edge("plan", "search")
 
     graph.add_edge("search", "extract")
-    graph.add_edge("extract", "score")
+    graph.add_edge("extract", "chunk_passages")
+    graph.add_edge("chunk_passages", "score")
     graph.add_edge("score", "contradiction")
     graph.add_edge("contradiction", "synthesize")
     graph.add_edge("synthesize", "critique")
