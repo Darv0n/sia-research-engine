@@ -131,6 +131,25 @@ class Settings:
             errors.append(f"MODE must be 'auto' or 'hitl', got '{self.mode}'")
         return errors
 
+    def warnings(self) -> list[str]:
+        """Return list of non-fatal configuration warnings."""
+        warns: list[str] = []
+        if self.openalex_email:
+            # OpenAlex is configured — no warning needed
+            pass
+        elif "openalex" not in self.available_backends():
+            # Not configured at all — no warning needed
+            pass
+        # Note: openalex appears in available_backends() only with email, so
+        # the anonymous-pool case is: email empty but user explicitly requested it.
+
+        if self.wayback_enabled and self.wayback_timeout < 5:
+            warns.append(
+                f"WAYBACK_TIMEOUT={self.wayback_timeout}s is aggressive. "
+                "Wayback CDX responses can be slow — consider >= 15s."
+            )
+        return warns
+
 
 def get_settings() -> Settings:
     """Create Settings from current environment."""

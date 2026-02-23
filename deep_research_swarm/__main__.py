@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import dataclasses
 import json
 import os
 import sys
@@ -151,6 +152,19 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         default=False,
         help="Export memory records in MCP entity format and exit",
+    )
+    # V7 flags
+    parser.add_argument(
+        "--academic",
+        action="store_true",
+        default=False,
+        help="Add openalex and semantic_scholar to backends for this run",
+    )
+    parser.add_argument(
+        "--no-archive",
+        action="store_true",
+        default=False,
+        help="Disable Wayback Machine archive fallback for this run",
     )
     # V6 flags
     parser.add_argument(
@@ -421,6 +435,10 @@ async def run(args: argparse.Namespace) -> None:
             print(f"ERROR: {err}", file=sys.stderr)
         sys.exit(1)
 
+    # Print warnings (non-fatal)
+    for warn in settings.warnings():
+        print(f"WARNING: {warn}", file=sys.stderr)
+
     # Resolve paths
     project_root = Path(__file__).resolve().parent.parent
     db_path = str(project_root / settings.checkpoint_db)
@@ -534,7 +552,18 @@ async def run(args: argparse.Namespace) -> None:
         print("ERROR: A research question is required.", file=sys.stderr)
         sys.exit(1)
 
+    # Disable archive if requested (before computing available_backends)
+    if args.no_archive:
+        settings = dataclasses.replace(settings, wayback_enabled=False)
+
     backends = args.backends or settings.available_backends()
+
+    # --academic: append scholarly backends if not already present
+    if args.academic:
+        for b in ["openalex", "semantic_scholar"]:
+            if b not in backends:
+                backends.append(b)
+
     max_iter = args.max_iterations or settings.max_iterations
     budget = args.token_budget or settings.token_budget
 

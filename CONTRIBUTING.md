@@ -116,3 +116,25 @@ async def fan_out_node(state: ResearchState, config: RunnableConfig | None = Non
 6. Add a display label to `NODE_LABELS` in `streaming.py`
 7. Write tests in `tests/test_<feature>.py` using existing fixture patterns
 8. Update `.env.example` and `CLAUDE.md` if new config vars were added
+
+## Adding a Search Backend
+
+1. Create `backends/mybackend.py` implementing the `SearchBackend` Protocol
+2. Register in `backends/__init__.py` via `register_backend()`
+3. Add API key to `config.py` Settings + `available_backends()`
+4. Update `.env.example` with the new config var
+5. If the backend has a QueryType affinity (e.g., ACADEMIC), add it to `scoring/routing.py` `BACKEND_ROUTES`
+
+See `backends/openalex.py` and `backends/semantic_scholar.py` as worked examples of scholarly backends with retry logic and metadata population.
+
+## PDF Extraction Alternatives (AGPL-free)
+
+The default PDF extractor uses PyMuPDF4LLM (AGPL-3.0). For AGPL-free deployments:
+
+| Alternative | License | Notes |
+|-------------|---------|-------|
+| GROBID | Apache-2.0 | Structured extraction, academic PDFs |
+| Unstructured | Apache-2.0 | General-purpose document extraction |
+| PaddleOCR | Apache-2.0 | OCR-based extraction for scanned PDFs |
+
+Drop-in replacement: implement the same interface as `extractors/pdf_extractor.py`.

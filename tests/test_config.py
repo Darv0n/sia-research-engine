@@ -59,3 +59,46 @@ class TestV7AvailableBackends:
         assert "searxng" in backends
         assert "exa" in backends
         assert "tavily" in backends
+
+
+class TestV7ConfigWarnings:
+    """Config warnings (PR-12)."""
+
+    def test_no_warnings_by_default(self):
+        s = Settings()
+        assert s.warnings() == []
+
+    def test_aggressive_wayback_timeout_warning(self):
+        s = Settings(wayback_enabled=True, wayback_timeout=3)
+        warns = s.warnings()
+        assert len(warns) == 1
+        assert "WAYBACK_TIMEOUT=3s" in warns[0]
+        assert "aggressive" in warns[0]
+
+    def test_no_warning_at_threshold(self):
+        s = Settings(wayback_enabled=True, wayback_timeout=5)
+        assert s.warnings() == []
+
+    def test_no_warning_when_wayback_disabled(self):
+        s = Settings(wayback_enabled=False, wayback_timeout=1)
+        assert s.warnings() == []
+
+
+class TestV7BackendRegistryComplete:
+    """All V7 backends register when configured (PR-12 integration)."""
+
+    def test_all_v7_backends_available(self):
+        s = Settings(
+            exa_api_key="test",
+            tavily_api_key="test",
+            openalex_email="test@test.com",
+            wayback_enabled=True,
+        )
+        available = s.available_backends()
+        assert "searxng" in available
+        assert "exa" in available
+        assert "tavily" in available
+        assert "openalex" in available
+        assert "semantic_scholar" in available
+        assert "wayback" in available
+        assert len(available) == 6
