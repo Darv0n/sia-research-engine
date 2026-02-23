@@ -56,11 +56,31 @@ def render_report(state: "ResearchState") -> str:
     lines.append(f"# {research_question}")
     lines.append("")
 
-    # --- Sections ---
-    for sec in section_drafts:
+    # --- Composition + Sections (V7) ---
+    composition = state.get("composition", {})
+    intro = composition.get("introduction", "") if composition else ""
+    transitions = composition.get("section_transitions", {}) if composition else {}
+    conclusion = composition.get("conclusion", "") if composition else ""
+
+    if intro:
+        lines.append(intro)
+        lines.append("")
+
+    for i, sec in enumerate(section_drafts):
+        # Add transition before non-first sections
+        if i > 0:
+            transition = transitions.get(sec["heading"], "")
+            if transition:
+                lines.append(transition)
+                lines.append("")
+
         lines.append(f"## {sec['heading']}")
         lines.append("")
         lines.append(sec["content"])
+        lines.append("")
+
+    if conclusion:
+        lines.append(conclusion)
         lines.append("")
 
     # --- Confidence Assessment ---
