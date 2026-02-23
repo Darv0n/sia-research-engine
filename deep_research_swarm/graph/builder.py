@@ -14,6 +14,7 @@ from langgraph.graph import END, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 
 from deep_research_swarm.agents.base import AgentCaller
+from deep_research_swarm.agents.citation_chain import citation_chain
 from deep_research_swarm.agents.contradiction import detect_contradictions
 from deep_research_swarm.agents.critic import critique
 from deep_research_swarm.agents.extractor import extract_content
@@ -157,6 +158,15 @@ def build_graph(
     if settings.tavily_api_key:
         backend_configs["tavily"] = {"api_key": settings.tavily_api_key}
 
+    # Semantic Scholar backend for citation chaining (PR-08)
+    s2_backend = None
+    try:
+        from deep_research_swarm.backends.semantic_scholar import SemanticScholarBackend
+
+        s2_backend = SemanticScholarBackend(api_key=settings.semantic_scholar_api_key)
+    except Exception:
+        pass
+
     # --- Node functions (closures over callers) ---
 
     async def health_check_node(state: ResearchState) -> dict:
@@ -191,7 +201,7 @@ def build_graph(
         return {"search_backends": healthy}
 
     async def plan_node(state: ResearchState) -> dict:
-        return await plan(state, opus_caller)
+        return await plan(state, opus_caller, available_backends=settings.available_backends())
 
     async def search_node(state: ResearchState, config: RunnableConfig | None = None) -> dict:
         """Fan-out: search all sub-queries from the current iteration in parallel."""
@@ -325,6 +335,10 @@ def build_graph(
 
         return {"scored_documents": scored, "diversity_metrics": diversity}
 
+    async def citation_chain_node(state: ResearchState) -> dict:
+        """Expand evidence via citation graph traversal (V7, PR-08)."""
+        return await citation_chain(state, s2_backend)
+
     async def contradiction_node(state: ResearchState) -> dict:
         """Detect contradictions among scored documents."""
         scored_docs = state.get("scored_documents", [])
@@ -377,6 +391,7 @@ def build_graph(
         "extract": extract_node,
         "chunk_passages": chunk_passages_node,
         "score": score_node,
+        "citation_chain": citation_chain_node,
         "contradiction": contradiction_node,
         "synthesize": synthesize_node,
         "critique": critique_node,
@@ -452,7 +467,8 @@ def build_graph(
     graph.add_edge("search", "extract")
     graph.add_edge("extract", "chunk_passages")
     graph.add_edge("chunk_passages", "score")
-    graph.add_edge("score", "contradiction")
+    graph.add_edge("score", "citation_chain")
+    graph.add_edge("citation_chain", "contradiction")
     graph.add_edge("contradiction", "synthesize")
     graph.add_edge("synthesize", "critique")
     graph.add_edge("critique", "rollup_budget")
