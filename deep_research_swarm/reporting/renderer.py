@@ -16,6 +16,7 @@ from deep_research_swarm.reporting.citations import (
 )
 from deep_research_swarm.reporting.evidence_map import extract_claims, render_evidence_map
 from deep_research_swarm.reporting.heatmap import render_confidence_heatmap
+from deep_research_swarm.reporting.provenance import render_provenance_section
 from deep_research_swarm.reporting.trends import render_confidence_trends
 
 
@@ -144,6 +145,15 @@ def render_report(state: "ResearchState") -> str:
             lines.append("")
             lines.append(evidence_table)
             lines.append("")
+
+    # --- Source Provenance (V7) ---
+    search_results = state.get("search_results", [])
+    provenance_table = render_provenance_section(search_results)
+    if provenance_table:
+        lines.append("## Source Provenance")
+        lines.append("")
+        lines.append(provenance_table)
+        lines.append("")
 
     # --- Metadata ---
     lines.append("---")
