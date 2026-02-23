@@ -47,6 +47,25 @@ class TestArgParsing:
             assert args.max_iterations == 2
             assert args.no_cache is True
 
+    def test_academic_flag_parsed(self):
+        """--academic flag is parsed."""
+        with patch.object(sys, "argv", ["prog", "test q", "--academic"]):
+            args = parse_args()
+            assert args.academic is True
+
+    def test_no_archive_flag_parsed(self):
+        """--no-archive flag is parsed."""
+        with patch.object(sys, "argv", ["prog", "test q", "--no-archive"]):
+            args = parse_args()
+            assert args.no_archive is True
+
+    def test_academic_and_no_archive_combined(self):
+        """--academic and --no-archive can be combined."""
+        with patch.object(sys, "argv", ["prog", "test q", "--academic", "--no-archive"]):
+            args = parse_args()
+            assert args.academic is True
+            assert args.no_archive is True
+
 
 class TestResumeValidation:
     @patch("deep_research_swarm.__main__.get_settings")

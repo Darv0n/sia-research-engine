@@ -114,8 +114,10 @@ class TestHitlModeWithCheckpointer:
         edges = _get_edges(graph)
         assert ("health_check", "plan") in edges
         assert ("search", "extract") in edges
-        assert ("extract", "score") in edges
-        assert ("score", "contradiction") in edges
+        assert ("extract", "chunk_passages") in edges
+        assert ("chunk_passages", "score") in edges
+        assert ("score", "citation_chain") in edges
+        assert ("citation_chain", "contradiction") in edges
         assert ("contradiction", "synthesize") in edges
         assert ("synthesize", "critique") in edges
         assert ("critique", "rollup_budget") in edges

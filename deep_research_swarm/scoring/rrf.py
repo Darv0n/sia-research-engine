@@ -9,7 +9,7 @@ from deep_research_swarm.contracts import (
     ScoredDocument,
     SearchResult,
 )
-from deep_research_swarm.scoring.authority import authority_score
+from deep_research_swarm.scoring.authority import score_authority
 
 
 def reciprocal_rank_fusion(
@@ -88,8 +88,9 @@ def build_scored_documents(
         content = content_obj["content"] if content_obj else meta.get("snippet", "")
         title = content_obj["title"] if content_obj else meta.get("title", "")
 
-        auth = meta["authority"]
-        auth_sc = authority_score(auth)
+        # V7: use score_authority() with scholarly metadata when available
+        scholarly = meta.get("scholarly_metadata")
+        auth, auth_sc = score_authority(url, scholarly_metadata=scholarly)
 
         combined = rrf_score * (1 - authority_weight) + auth_sc * authority_weight
 

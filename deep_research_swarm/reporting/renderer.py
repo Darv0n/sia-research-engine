@@ -16,6 +16,7 @@ from deep_research_swarm.reporting.citations import (
 )
 from deep_research_swarm.reporting.evidence_map import extract_claims, render_evidence_map
 from deep_research_swarm.reporting.heatmap import render_confidence_heatmap
+from deep_research_swarm.reporting.provenance import render_provenance_section
 from deep_research_swarm.reporting.trends import render_confidence_trends
 
 
@@ -55,11 +56,31 @@ def render_report(state: "ResearchState") -> str:
     lines.append(f"# {research_question}")
     lines.append("")
 
-    # --- Sections ---
-    for sec in section_drafts:
+    # --- Composition + Sections (V7) ---
+    composition = state.get("composition", {})
+    intro = composition.get("introduction", "") if composition else ""
+    transitions = composition.get("section_transitions", {}) if composition else {}
+    conclusion = composition.get("conclusion", "") if composition else ""
+
+    if intro:
+        lines.append(intro)
+        lines.append("")
+
+    for i, sec in enumerate(section_drafts):
+        # Add transition before non-first sections
+        if i > 0:
+            transition = transitions.get(sec["heading"], "")
+            if transition:
+                lines.append(transition)
+                lines.append("")
+
         lines.append(f"## {sec['heading']}")
         lines.append("")
         lines.append(sec["content"])
+        lines.append("")
+
+    if conclusion:
+        lines.append(conclusion)
         lines.append("")
 
     # --- Confidence Assessment ---
@@ -144,6 +165,15 @@ def render_report(state: "ResearchState") -> str:
             lines.append("")
             lines.append(evidence_table)
             lines.append("")
+
+    # --- Source Provenance (V7) ---
+    search_results = state.get("search_results", [])
+    provenance_table = render_provenance_section(search_results)
+    if provenance_table:
+        lines.append("## Source Provenance")
+        lines.append("")
+        lines.append(provenance_table)
+        lines.append("")
 
     # --- Metadata ---
     lines.append("---")

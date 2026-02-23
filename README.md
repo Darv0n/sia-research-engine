@@ -1,6 +1,6 @@
 # Deep Research Swarm
 
-Multi-agent deep research system built on [LangGraph](https://github.com/langchain-ai/langgraph). Takes a research question, decomposes it via STORM-style perspective-guided questioning, dispatches parallel search agents across multiple backends, synthesizes findings via RAG-Fusion with Reciprocal Rank Fusion, critiques through a three-grader chain, and iterates until convergence. Produces structured Markdown reports with passage-level citations, confidence heat maps, and gap analysis.
+Multi-agent deep research system built on [LangGraph](https://github.com/langchain-ai/langgraph). Takes a research question, decomposes it via STORM-style perspective-guided questioning, dispatches parallel search agents across multiple backends (including scholarly APIs and web archives), synthesizes findings via outline-first grounded synthesis with passage-level verification, critiques through a three-grader chain, and iterates until convergence. Produces structured Markdown reports with passage-level citations, confidence heat maps, provenance tracking, and gap analysis.
 
 ## Table of Contents
 
@@ -48,6 +48,9 @@ cp .env.example .env
 
 # 5. Run
 python -m deep_research_swarm "What is quantum entanglement?"
+
+# With scholarly backends (OpenAlex + Semantic Scholar)
+python -m deep_research_swarm --academic "CRISPR gene editing for metabolic disorders"
 ```
 
 The report prints to stdout and saves to `output/<timestamp>-<question>.md`.
@@ -57,15 +60,19 @@ The report prints to stdout and saves to `output/<timestamp>-<question>.md`.
 Given a research question, the system:
 
 1. **Decomposes** the question into 3+ sub-queries from diverse perspectives (STORM method)
-2. **Searches** each sub-query in parallel across configured backends
-3. **Extracts** clean content from result URLs via a cascade of extractors
-4. **Scores** documents using Reciprocal Rank Fusion + source authority classification
-5. **Synthesizes** a structured report with inline `[N]` citations
-6. **Critiques** each section across three dimensions: relevance, hallucination, quality
-7. **Iterates** if quality is insufficient — re-plans to address gaps and weak sections
-8. **Renders** a final Markdown report with bibliography, confidence heat map, and gap analysis
+2. **Routes** each sub-query to appropriate backends based on query type (academic, technical, archival, general)
+3. **Searches** each sub-query in parallel across configured backends (including scholarly APIs)
+4. **Extracts** clean content from result URLs via a cascade of extractors (with Wayback Machine fallback for 404s)
+5. **Chunks** extracted documents into source passages with deterministic IDs
+6. **Scores** documents using Reciprocal Rank Fusion + enhanced authority classification (scholarly metadata signals)
+7. **Chains** citations via BFS traversal of the Semantic Scholar citation graph
+8. **Detects** contradictions between sources
+9. **Synthesizes** via outline-first pipeline: generate outline, draft sections in parallel with passage-narrowed context, mechanically verify grounding, refine failed sections, compose report
+10. **Critiques** each section across three dimensions: relevance, hallucination, quality
+11. **Iterates** if quality is insufficient — re-plans to address gaps and weak sections
+12. **Renders** a final Markdown report with provenance, bibliography, confidence heat map, and gap analysis
 
-On subsequent iterations, the synthesizer refines rather than regenerates — preserving strong sections while revising weak ones using newly gathered sources.
+On subsequent iterations, the synthesizer keeps HIGH-grounding sections intact while re-drafting MEDIUM/LOW sections with new sources.
 
 ## Architecture
 
@@ -75,7 +82,7 @@ On subsequent iterations, the synthesizer refines rather than regenerates — pr
                     +--------+---------+
                              |
                     +--------v---------+
-             +----->|      plan        |  STORM decomposition
+             +----->|      plan        |  STORM decomposition + routing
              |      +--------+---------+
              |               |
              |      +--------v---------+
@@ -91,7 +98,15 @@ On subsequent iterations, the synthesizer refines rather than regenerates — pr
              |      +--------+---------+
              |               |
              |      +--------v---------+
+             |      | chunk_passages   |  4-tier passage chunking
+             |      +--------+---------+
+             |               |
+             |      +--------v---------+
              |      |      score       |  RRF + authority ranking
+             |      +--------+---------+
+             |               |
+             |      +--------v---------+
+             |      | citation_chain   |  BFS via Semantic Scholar
              |      +--------+---------+
              |               |
              |      +--------v---------+
@@ -99,7 +114,7 @@ On subsequent iterations, the synthesizer refines rather than regenerates — pr
              |      +--------+---------+
              |               |
              |      +--------v---------+
-             |      |   synthesize     |  RAG-Fusion + citations
+             |      |   synthesize     |  Outline-first grounded synthesis
              |      +--------+---------+
              |               |
              |      +--------v---------+
@@ -170,10 +185,16 @@ Combined score: `rrf * (1 - w) + authority * w` where `w` defaults to 0.2.
 
 ### Synthesizer
 
-RAG-Fusion synthesis with inline `[N]` citations referencing source documents. Two operational modes:
+Outline-first grounded synthesis with inline `[N]` citations. Five-stage pipeline:
 
-- **Initial** (iteration 1): Fresh synthesis from scored sources — identifies themes, organizes into sections, assesses confidence.
-- **Refine** (iteration 2+): Context-aware refinement — keeps HIGH confidence sections intact, revises MEDIUM/LOW sections with new sources, adds new sections for uncovered topics, addresses identified research gaps.
+1. **Validate** — Deterministic outline validation (no LLM): checks source_ids, passage coverage, section count, key_claims
+2. **Outline** — 1 LLM call to generate section outline with source assignments and key claims
+3. **Draft** — N parallel LLM calls (asyncio.gather), each section sees ONLY its assigned passages
+4. **Verify** — Mechanical grounding verification (LLM-free, Jaccard similarity, 0.8 pass threshold)
+5. **Refine** — Failed sections get up to 2 LLM refinement attempts with ungrounded claims context
+6. **Compose** — 1 LLM call for introduction, section transitions, and conclusion (section content immutable)
+
+On iteration 2+, sections with HIGH grounding scores are preserved; MEDIUM/LOW sections are re-drafted with new sources.
 
 ### Critic
 
@@ -191,7 +212,9 @@ Per-section confidence = average of three grader scores, classified as HIGH/MEDI
 
 Generates structured Markdown with:
 - YAML frontmatter (metadata, iteration count, token usage, cost)
+- LLM-generated introduction and section transitions
 - Themed sections with inline citations
+- LLM-generated conclusion
 - Confidence heat map table
 - Confidence trends with sparklines across iterations
 - Source diversity metrics (HHI, domain count, authority mix)
@@ -199,6 +222,7 @@ Generates structured Markdown with:
 - Research gaps section
 - Deduplicated, sequentially-numbered bibliography
 - Evidence map (claim-to-source mapping table with authority and confidence)
+- Source provenance table (content hashes, access timestamps, archive status)
 
 ## Configuration
 
@@ -226,6 +250,11 @@ All settings are controlled via environment variables. Copy `.env.example` to `.
 | `MEMORY_DIR` | `memory/` | Path to memory storage directory |
 | `RUN_LOG_DIR` | `runs/` | Path to run event log directory |
 | `MODE` | `auto` | Execution mode: `auto` or `hitl` (human-in-the-loop gates) |
+| `OPENALEX_EMAIL` | *(optional)* | Email for OpenAlex polite pool (enables openalex backend) |
+| `OPENALEX_API_KEY` | *(optional)* | OpenAlex API key (email is sufficient for access) |
+| `S2_API_KEY` | *(optional)* | Semantic Scholar API key (works unauthenticated) |
+| `WAYBACK_ENABLED` | `true` | Enable Wayback Machine archive backend |
+| `WAYBACK_TIMEOUT` | `15` | Wayback request timeout in seconds |
 
 ## Search Backends
 
@@ -236,6 +265,9 @@ The system supports multiple search backends via a Protocol-based registry. Back
 | **SearXNG** | Self-hosted meta-search | Docker + `SEARXNG_URL` | Aggregates Google, Bing, DuckDuckGo, Wikipedia, Google Scholar, arXiv |
 | **Exa** | Semantic search API | `EXA_API_KEY` | Neural search with content retrieval |
 | **Tavily** | Factual search API | `TAVILY_API_KEY` | Optimized for factual grounding |
+| **OpenAlex** | Scholarly search API | `OPENALEX_EMAIL` | 250M+ works, abstract reconstruction from inverted index, polite pool with email |
+| **Semantic Scholar** | Scholarly search API | *(optional)* `S2_API_KEY` | Works unauthenticated; also used for citation chaining (BFS graph traversal) |
+| **Wayback Machine** | Web archive | `WAYBACK_ENABLED=true` | CDX API for historical snapshots; fallback when live extractors fail |
 
 ### SearXNG Setup
 
@@ -314,6 +346,7 @@ usage: deep-research-swarm [-h] [--max-iterations N] [--token-budget N]
                            [--resume THREAD_ID] [--list-threads]
                            [--dump-state THREAD_ID] [--no-memory]
                            [--list-memories] [--export-mcp]
+                           [--academic] [--no-archive]
                            [--no-log] [--mode {auto,hitl}]
                            [question]
 
@@ -335,6 +368,8 @@ options:
   --no-memory           Disable memory store/retrieval for this run
   --list-memories       Print stored memory records and exit
   --export-mcp          Export memory in MCP entity format
+  --academic            Add openalex and semantic_scholar to backends
+  --no-archive          Disable Wayback Machine archive fallback
   --no-log              Disable run event logging
   --mode {auto,hitl}    Execution mode (auto=default, hitl=human-in-the-loop gates)
 ```
@@ -378,6 +413,12 @@ python -m deep_research_swarm --mode hitl "Risks of artificial general intellige
 # Resume through an HITL gate after review
 python -m deep_research_swarm --resume research-20260221-212856-cd2e
 
+# Scholarly research with academic backends (OpenAlex + Semantic Scholar)
+python -m deep_research_swarm --academic "CRISPR gene editing for metabolic disorders"
+
+# Scholarly research without archive fallback
+python -m deep_research_swarm --academic --no-archive "Latest advances in quantum computing"
+
 # Run without event logging
 python -m deep_research_swarm --no-log "Quick ephemeral question"
 ```
@@ -397,10 +438,11 @@ deep-research-swarm/
 │   │
 │   ├── agents/
 │   │   ├── base.py              # AgentCaller (Anthropic SDK wrapper + retry)
-│   │   ├── planner.py           # STORM decomposition + query dedup
+│   │   ├── planner.py           # STORM decomposition + query dedup + routing
 │   │   ├── searcher.py          # Parallel search dispatch
 │   │   ├── extractor.py         # Content extraction coordinator
-│   │   ├── synthesizer.py       # RAG-Fusion synthesis
+│   │   ├── synthesizer.py       # Outline-first grounded synthesis (5-stage)
+│   │   ├── citation_chain.py    # BFS citation graph traversal via S2
 │   │   ├── contradiction.py     # Sonnet-powered contradiction detection
 │   │   └── critic.py            # Three-grader chain + convergence
 │   │
@@ -409,25 +451,34 @@ deep-research-swarm/
 │   │   ├── searxng.py           # SearXNG implementation
 │   │   ├── exa.py               # Exa semantic search
 │   │   ├── tavily.py            # Tavily factual search
+│   │   ├── openalex.py          # OpenAlex scholarly search
+│   │   ├── semantic_scholar.py  # Semantic Scholar search + citation API
+│   │   ├── crossref.py          # Crossref/Unpaywall DOI utilities
+│   │   ├── wayback.py           # Wayback Machine archive backend
 │   │   └── cache.py             # File-based search cache (SHA-256 keys, TTL)
 │   │
 │   ├── extractors/
+│   │   ├── chunker.py           # 4-tier passage chunking
 │   │   ├── crawl4ai_extractor.py
 │   │   ├── trafilatura_extractor.py
 │   │   └── pdf_extractor.py     # HTTP download + pymupdf4llm
 │   │
 │   ├── scoring/
 │   │   ├── rrf.py               # Reciprocal Rank Fusion
-│   │   ├── authority.py         # Source authority classification
+│   │   ├── authority.py         # Source authority classification + scholarly signals
 │   │   ├── confidence.py        # Confidence + replan logic
-│   │   └── diversity.py         # HHI-based source diversity scoring
+│   │   ├── diversity.py         # HHI-based source diversity scoring
+│   │   ├── grounding.py         # Mechanical grounding verification (LLM-free)
+│   │   ├── routing.py           # Query classification + backend routing
+│   │   └── provenance.py        # Content hash provenance tracking
 │   │
 │   ├── reporting/
-│   │   ├── renderer.py          # Markdown report generation
+│   │   ├── renderer.py          # Markdown report generation + composition
 │   │   ├── citations.py         # Dedup, renumber, bibliography
 │   │   ├── heatmap.py           # Confidence heat map table
 │   │   ├── trends.py            # Confidence sparklines across iterations
-│   │   └── evidence_map.py      # Claim-to-source mapping table
+│   │   ├── evidence_map.py      # Claim-to-source mapping table
+│   │   └── provenance.py        # Provenance section rendering
 │   │
 │   ├── memory/
 │   │   ├── store.py             # JSON-backed cross-session memory store
@@ -442,7 +493,7 @@ deep-research-swarm/
 │   │
 │   └── streaming.py             # StreamDisplay for astream progress
 │
-├── tests/                       # 230 tests across 20 modules
+├── tests/                       # 472 tests across 30+ modules
 ├── docker/                      # SearXNG Docker configuration
 ├── output/                      # Generated reports (gitignored)
 ├── checkpoints/                 # SQLite checkpoint DB (gitignored)
@@ -469,14 +520,14 @@ pytest tests/test_rrf.py -v
 python -m deep_research_swarm "What is quantum entanglement?"
 ```
 
-**230 tests** covering:
+**472 tests** covering:
 
 | Module | Tests | Coverage |
 |--------|-------|----------|
-| Authority scoring | 16 | URL classification, score ranges, edge cases |
+| Authority scoring | 16 | URL classification, score ranges, scholarly metadata |
 | RRF algorithm | 8 | Fusion, k parameter, empty input, scored documents |
 | Confidence | 12 | Classification, aggregation, replan triggers |
-| Contracts | 10 | TypedDict construction, enum values, Protocol conformance |
+| Contracts | 18 | TypedDict construction, enum values, Protocol conformance, V7 types |
 | Budget tracker | 7 | Recording, limits, agent breakdown |
 | Backends | 4 | Registry, Protocol conformance |
 | Graph | 4 | Compilation, routing, checkpointer wiring |
@@ -488,7 +539,7 @@ python -m deep_research_swarm "What is quantum entanglement?"
 | Streaming | 7 | Node labels, iteration detection, custom events |
 | PDF extraction | 9 | URL detection, cascade routing, local/remote extraction |
 | Trends | 5 | Sparkline rendering, new/dropped sections |
-| Resume/checkpoint | 12 | Arg parsing, resume validation, thread ID format |
+| Resume/checkpoint | 15 | Arg parsing, resume validation, V7 CLI flags |
 | Dump state | 5 | CLI flags, memory context formatting |
 | Memory store | 11 | Add/list, search, persistence, graceful degradation |
 | Memory extract | 3 | Full state, empty state, missing fields |
@@ -497,6 +548,17 @@ python -m deep_research_swarm "What is quantum entanglement?"
 | Evidence map | 13 | Claim extraction, citation mapping, rendering, escaping |
 | HITL gates | 10 | Auto/hitl mode, gate wiring, config validation |
 | MCP export | 7 | Entity structure, observations, metadata, empty input |
+| Config | 17 | V7 defaults, available_backends, warnings, registry |
+| OpenAlex | 11 | Protocol conformance, search, error handling, abstract reconstruction |
+| Semantic Scholar | 13 | Protocol conformance, search, paper details, retry |
+| Crossref | 10 | DOI resolution, open access, content negotiation |
+| Wayback | 11 | Protocol conformance, CDX captures, archive fetch, health |
+| Chunker | 12 | 4-tier chunking, passage IDs, edge cases |
+| Grounding | 12 | Passage assignment, grounding verification, section scores |
+| Provenance | 7 | Provenance records, content hashing, rendering |
+| Routing | 28 | Query classification, backend routing, planner integration |
+| Citation chain | 20 | Relevance scoring, BFS traversal, budget, dedup |
+| Synthesizer | 25 | Outline parsing, validation, citation map, renumbering, full pipeline |
 | Integration | 1 | Mocked LLM planner e2e |
 
 All tests run without network access, API keys, or Docker — LLM calls are mocked.
@@ -555,8 +617,11 @@ No inheritance required — the Protocol uses structural subtyping (PEP 544).
 - [x] **V4** — Persistence & resume: AsyncSqliteSaver checkpointing, `--resume` CLI flag, PDF extraction cascade, PostgresSaver option
 - [x] **V5** — Memory & state: cross-session research memory (JSON-backed Jaccard search), `--dump-state`, `--list-memories`, `--export-mcp`, extracted text utilities, memory lifecycle in CLI
 - [x] **V6** — Forensic mode: human-in-the-loop gates (`--mode hitl` with LangGraph `interrupt()`), run event log (JSONL per run), evidence map appendix (claim-to-source mapping), robust JSON extraction for agent responses
-- [ ] **V7** — Planned: MCP Memory server (live, not just export), memory pruning (auto-cleanup old/low-value records), embedding-based retrieval (replace Jaccard with vector similarity)
+- [x] **V7** — Niche retrieval: scholarly backends (OpenAlex, Semantic Scholar), archive fallback (Wayback Machine), citation chaining (BFS via S2), passage chunking, mechanical grounding verification, backend routing, provenance tracking, outline-first synthesis with parallel drafting
+- [ ] **V8** — Planned: internal hybrid index (OpenSearch k-NN), focused crawling, OCR/GROBID for scanned PDFs, embedding-based routing and retrieval, MCP Memory server (live)
 
 ## License
 
 [MIT](LICENSE)
+
+**Dependency license note:** The PDF extractor (`extractors/pdf_extractor.py`) uses PyMuPDF4LLM, which is AGPL-3.0 licensed. CLI distribution under MIT is unaffected. If you deploy deep-research-swarm as a network service or API, AGPL terms apply to the PDF extraction component. Apache-2.0 alternatives (GROBID, Unstructured, PaddleOCR) are available and documented in `CONTRIBUTING.md`.

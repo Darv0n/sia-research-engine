@@ -8,6 +8,7 @@ import uuid
 from deep_research_swarm.agents.base import AgentCaller
 from deep_research_swarm.contracts import SubQuery
 from deep_research_swarm.graph.state import ResearchState
+from deep_research_swarm.scoring.routing import classify_query, route_backends
 from deep_research_swarm.utils.text import is_duplicate as _is_duplicate
 
 PLANNER_SYSTEM = """\
@@ -39,7 +40,12 @@ Generate NEW queries that address the gaps. Do NOT repeat previous queries.
 """
 
 
-async def plan(state: ResearchState, caller: AgentCaller) -> dict:
+async def plan(
+    state: ResearchState,
+    caller: AgentCaller,
+    *,
+    available_backends: list[str] | None = None,
+) -> dict:
     """Decompose research question into perspectives and sub-queries."""
     research_question = state["research_question"]
     iteration = state.get("current_iteration", 0)
@@ -73,7 +79,8 @@ async def plan(state: ResearchState, caller: AgentCaller) -> dict:
     )
 
     perspectives = data.get("perspectives", [])
-    backends = state.get("search_backends", ["searxng"])
+    user_backends = state.get("search_backends", [])
+    available_backends = available_backends or ["searxng"]
 
     # Build sub-queries with programmatic deduplication
     sub_queries: list[SubQuery] = []
@@ -87,6 +94,13 @@ async def plan(state: ResearchState, caller: AgentCaller) -> dict:
         # Reject if duplicate of existing or already-accepted
         if _is_duplicate(question, accepted_questions):
             continue
+
+        # Backend routing: user-specified takes precedence, else route by query type
+        if user_backends:
+            backends = user_backends
+        else:
+            query_type = classify_query(question)
+            backends = route_backends(query_type, available_backends)
 
         sub_queries.append(
             SubQuery(

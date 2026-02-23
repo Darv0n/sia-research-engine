@@ -83,6 +83,19 @@ class Settings:
     # Execution mode (V6)
     mode: str = field(default_factory=lambda: os.environ.get("MODE", "auto"))
 
+    # Scholarly backends (V7)
+    openalex_email: str = field(default_factory=lambda: os.environ.get("OPENALEX_EMAIL", ""))
+    openalex_api_key: str = field(default_factory=lambda: os.environ.get("OPENALEX_API_KEY", ""))
+    semantic_scholar_api_key: str = field(default_factory=lambda: os.environ.get("S2_API_KEY", ""))
+
+    # Archive backends (V7)
+    wayback_enabled: bool = field(
+        default_factory=lambda: os.environ.get("WAYBACK_ENABLED", "true").lower() == "true"
+    )
+    wayback_timeout: int = field(
+        default_factory=lambda: int(os.environ.get("WAYBACK_TIMEOUT", "15"))
+    )
+
     def available_backends(self) -> list[str]:
         """Return list of backends that have valid configuration."""
         backends = ["searxng"]  # Always available (local)
@@ -90,6 +103,12 @@ class Settings:
             backends.append("exa")
         if self.tavily_api_key:
             backends.append("tavily")
+        # Scholarly backends (V7)
+        if self.openalex_email:
+            backends.append("openalex")
+        backends.append("semantic_scholar")  # Works unauthenticated
+        if self.wayback_enabled:
+            backends.append("wayback")
         return backends
 
     def validate(self) -> list[str]:
@@ -111,6 +130,25 @@ class Settings:
         if self.mode not in ("auto", "hitl"):
             errors.append(f"MODE must be 'auto' or 'hitl', got '{self.mode}'")
         return errors
+
+    def warnings(self) -> list[str]:
+        """Return list of non-fatal configuration warnings."""
+        warns: list[str] = []
+        if self.openalex_email:
+            # OpenAlex is configured — no warning needed
+            pass
+        elif "openalex" not in self.available_backends():
+            # Not configured at all — no warning needed
+            pass
+        # Note: openalex appears in available_backends() only with email, so
+        # the anonymous-pool case is: email empty but user explicitly requested it.
+
+        if self.wayback_enabled and self.wayback_timeout < 5:
+            warns.append(
+                f"WAYBACK_TIMEOUT={self.wayback_timeout}s is aggressive. "
+                "Wayback CDX responses can be slow — consider >= 15s."
+            )
+        return warns
 
 
 def get_settings() -> Settings:

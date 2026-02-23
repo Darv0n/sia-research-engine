@@ -4,6 +4,36 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.7.0] - 2026-02-23
+
+### Added
+- **OpenAlex backend**: Scholarly search via OpenAlex API with abstract reconstruction from inverted index, 429 retry with exponential backoff, polite pool support via `OPENALEX_EMAIL`
+- **Semantic Scholar backend**: Scholarly search + `get_paper_details()` for citation chaining, Retry-After header handling, works unauthenticated
+- **Crossref/Unpaywall utilities**: DOI resolution, open-access URL lookup, content negotiation, scholarly result enrichment
+- **Wayback Machine backend**: Archive fallback via CDX API, polite 1s spacing, `id_` replay URLs, integrated into extractor cascade after live extractors fail
+- **Passage chunking**: 4-tier chunking (headings -> paragraphs -> sentences -> hard split), deterministic SHA-256-based passage IDs, `chunk_all_documents()` wired between extract and score nodes
+- **Mechanical grounding verification**: LLM-free `verify_grounding()` using Jaccard similarity (method="jaccard_v1"), `compute_section_grounding_score()` with 0.8 pass threshold, `assign_passages_to_sections()` for passage narrowing
+- **Enhanced authority scoring**: `score_authority()` with scholarly metadata signals, SCHOLARLY_DOMAINS set, extended INSTITUTIONAL_SUFFIXES
+- **Backend routing**: Deterministic query classification (`classify_query()`) using keyword signal density, `route_backends()` for type-specific backend ordering, QueryType enum (ACADEMIC/GENERAL/ARCHIVAL/TECHNICAL)
+- **Provenance tracking**: Content hash provenance with `build_provenance_record()`, provenance section in rendered reports
+- **Citation chaining**: BFS traversal of Semantic Scholar citation graphs, 50-paper budget, 2-hop depth, cross-iteration deduplication, relevance filtering via Jaccard similarity
+- **Outline-first synthesis**: 5-stage pipeline replacing single-call synthesis — validate outline (deterministic), generate outline (1 LLM call), draft sections in parallel (N LLM calls), verify grounding (mechanical, LLM-free), refine failed sections (max 2 attempts), compose report (intro/transitions/conclusion)
+- **Composition structure**: Reports now have LLM-generated introduction, section transitions, and conclusion (section content immutable during composition)
+- **Grounding data survival**: `grounding_score` and `claim_details` persist through synthesis to final output, `citation_to_passage_map` as first-class state output
+- **CLI flags**: `--academic` (add scholarly backends), `--no-archive` (disable Wayback fallback)
+- **Config warnings**: Non-fatal warnings for aggressive Wayback timeout
+- New TypedDicts: ProvenanceRecord, ScholarlyMetadata, ArchiveCapture, SourcePassage, SectionOutline, IndexedContent
+- New state fields: `source_passages`, `citation_chain_results`, `citation_to_passage_map`
+- Config: `OPENALEX_EMAIL`, `OPENALEX_API_KEY`, `S2_API_KEY`, `WAYBACK_ENABLED`, `WAYBACK_TIMEOUT`
+- 233 new tests (472 total)
+
+### Changed
+- Pipeline now includes `chunk_passages` node between extract and score, and `citation_chain` node between score and contradiction
+- Synthesizer completely rewritten: outline-first with parallel section drafting, passage-narrowed context, mechanical grounding verification
+- Report renderer handles composition structure (introduction, transitions, conclusion)
+- Planner integrates backend routing: `classify_query()` + `route_backends()` applied per sub-query when user doesn't specify backends
+- Authority scoring uses scholarly metadata when available (citation count, journal prestige)
+
 ## [0.6.2] - 2026-02-21
 
 ### Fixed
