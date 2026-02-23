@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import Protocol, TypedDict, runtime_checkable
+from typing import NotRequired, Protocol, TypedDict, runtime_checkable
 
 # --- Enums ---
 
@@ -34,17 +34,100 @@ class SubQuery(TypedDict):
     search_backends: list[str]
 
 
+class ProvenanceRecord(TypedDict):
+    """Tracks the full provenance chain for a piece of content."""
+
+    entity_id: str  # URN-style, e.g. "urn:doi:10.1234/example"
+    source_url: str
+    source_kind: str  # "web" | "scholarly" | "archive" | "pdf"
+    fetched_at: str  # ISO 8601
+    extractor: str  # "crawl4ai" | "trafilatura" | "pymupdf4llm" | "wayback"
+    license_tag: str  # "unknown" | "CC-BY-4.0" | etc.
+    capture_timestamp: str  # Wayback-only, YYYYMMDDHHMMSS; "" for non-archive
+    content_hash: str  # SHA-256 of extracted text (OE2: enables change detection)
+
+
+class ScholarlyMetadata(TypedDict):
+    """Metadata from academic APIs (OpenAlex, Semantic Scholar, Crossref)."""
+
+    doi: str
+    arxiv_id: str
+    pmid: str
+    title: str
+    authors: list[str]
+    year: int
+    venue: str
+    citation_count: int
+    reference_count: int
+    is_open_access: bool
+    open_access_url: str
+    abstract: str
+
+
+class ArchiveCapture(TypedDict):
+    """Wayback Machine snapshot data."""
+
+    original_url: str
+    archive_url: str
+    capture_timestamp: str  # YYYYMMDDHHMMSS format
+    status_code: int
+    content_type: str
+
+
+class SourcePassage(TypedDict):
+    """A passage chunk from an extracted document.
+
+    INVARIANT: SourcePassage.id MUST be content-hash-based (D1, I1).
+    This enables: incremental research (diff runs), claim graph traversal,
+    cross-run dedup. Do NOT change to random UUIDs. This is the load-bearing
+    decision for E2 (incremental research).
+    """
+
+    id: str  # f"sp-{sha256((source_id + str(position)).encode()).hexdigest()[:8]}"
+    source_id: str  # canonical_url + content_hash — CONTENT-STABLE, not run-stable
+    source_url: str
+    content: str  # 200-400 tokens target
+    position: int  # 0-indexed chunk position
+    char_offset: int
+    token_count: int  # word_count * 1.3 estimate
+    heading_context: str  # nearest heading above this passage
+    claim_ids: list[str]  # OE1: empty in V7, populated in V8
+
+
+class SectionOutline(TypedDict):
+    """Outline structure for a section before drafting."""
+
+    heading: str
+    key_claims: list[str]
+    source_ids: list[str]  # passage source_ids relevant to this section
+    narrative_role: str  # "introduction" | "evidence" | "analysis" | "conclusion"
+
+
+class IndexedContent(TypedDict):
+    """V8 stub for embedding-based retrieval (OE8/D8).
+
+    Ships empty in V7. V8 populates embedding + index_backend
+    without surgery to contracts.py.
+    """
+
+    passage_id: str
+    embedding: list[float]  # empty in V7
+    index_backend: str  # empty in V7
+
+
 class SearchResult(TypedDict):
     id: str
     sub_query_id: str
     url: str
     title: str
     snippet: str
-    backend: str  # "searxng" | "exa" | "tavily"
+    backend: str  # "searxng" | "exa" | "tavily" | "openalex" | "semantic_scholar"
     rank: int
     score: float  # 0-1
     authority: SourceAuthority
     timestamp: str  # ISO 8601
+    provenance: NotRequired[ProvenanceRecord | None]
+    scholarly_metadata: NotRequired[ScholarlyMetadata | None]
 
 
 class ExtractedContent(TypedDict):
@@ -85,6 +168,8 @@ class SectionDraft(TypedDict):
     confidence_score: float
     confidence_level: Confidence
     grader_scores: GraderScores
+    grounding_score: NotRequired[float]  # OE3: 0-1, from verify_grounding()
+    claim_details: NotRequired[list[dict]]  # OE3: per-claim grounding details
 
 
 class Citation(TypedDict):

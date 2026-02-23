@@ -83,6 +83,19 @@ class Settings:
     # Execution mode (V6)
     mode: str = field(default_factory=lambda: os.environ.get("MODE", "auto"))
 
+    # Scholarly backends (V7)
+    openalex_email: str = field(default_factory=lambda: os.environ.get("OPENALEX_EMAIL", ""))
+    openalex_api_key: str = field(default_factory=lambda: os.environ.get("OPENALEX_API_KEY", ""))
+    semantic_scholar_api_key: str = field(default_factory=lambda: os.environ.get("S2_API_KEY", ""))
+
+    # Archive backends (V7)
+    wayback_enabled: bool = field(
+        default_factory=lambda: os.environ.get("WAYBACK_ENABLED", "true").lower() == "true"
+    )
+    wayback_timeout: int = field(
+        default_factory=lambda: int(os.environ.get("WAYBACK_TIMEOUT", "15"))
+    )
+
     def available_backends(self) -> list[str]:
         """Return list of backends that have valid configuration."""
         backends = ["searxng"]  # Always available (local)
@@ -90,6 +103,12 @@ class Settings:
             backends.append("exa")
         if self.tavily_api_key:
             backends.append("tavily")
+        # Scholarly backends (V7)
+        if self.openalex_email:
+            backends.append("openalex")
+        backends.append("semantic_scholar")  # Works unauthenticated
+        if self.wayback_enabled:
+            backends.append("wayback")
         return backends
 
     def validate(self) -> list[str]:

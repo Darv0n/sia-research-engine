@@ -5,14 +5,20 @@ from __future__ import annotations
 import pytest
 
 from deep_research_swarm.contracts import (
+    ArchiveCapture,
     Citation,
     Confidence,
     ExtractedContent,
     GraderScores,
+    IndexedContent,
+    ProvenanceRecord,
+    ScholarlyMetadata,
     ScoredDocument,
     SearchResult,
     SectionDraft,
+    SectionOutline,
     SourceAuthority,
+    SourcePassage,
     SubQuery,
     TokenUsage,
 )
@@ -183,4 +189,81 @@ def sample_token_usage() -> TokenUsage:
         output_tokens=500,
         cost_usd=0.06,
         timestamp="2026-02-20T00:00:00Z",
+    )
+
+
+@pytest.fixture
+def sample_provenance_record() -> ProvenanceRecord:
+    return ProvenanceRecord(
+        entity_id="urn:url:https://www.nature.com/articles/quantum-entanglement",
+        source_url="https://www.nature.com/articles/quantum-entanglement",
+        source_kind="web",
+        fetched_at="2026-02-23T12:00:00Z",
+        extractor="trafilatura",
+        license_tag="unknown",
+        capture_timestamp="",
+        content_hash="a1b2c3d4e5f6",
+    )
+
+
+@pytest.fixture
+def sample_scholarly_metadata() -> ScholarlyMetadata:
+    return ScholarlyMetadata(
+        doi="10.1038/s41586-023-06768-0",
+        arxiv_id="2401.12345",
+        pmid="",
+        title="Quantum Entanglement Explained",
+        authors=["Alice", "Bob"],
+        year=2024,
+        venue="Nature",
+        citation_count=150,
+        reference_count=45,
+        is_open_access=True,
+        open_access_url="https://www.nature.com/articles/quantum-entanglement",
+        abstract="We review quantum entanglement...",
+    )
+
+
+@pytest.fixture
+def sample_archive_capture() -> ArchiveCapture:
+    return ArchiveCapture(
+        original_url="https://example.com/page",
+        archive_url="https://web.archive.org/web/20240101000000/https://example.com/page",
+        capture_timestamp="20240101000000",
+        status_code=200,
+        content_type="text/html",
+    )
+
+
+@pytest.fixture
+def sample_source_passage() -> SourcePassage:
+    return SourcePassage(
+        id="sp-a1b2c3d4",
+        source_id="https://www.nature.com/articles/quantum-entanglementa1b2c3d4e5f6",
+        source_url="https://www.nature.com/articles/quantum-entanglement",
+        content="Quantum entanglement is a phenomenon where particles become correlated.",
+        position=0,
+        char_offset=0,
+        token_count=12,
+        heading_context="Introduction",
+        claim_ids=[],
+    )
+
+
+@pytest.fixture
+def sample_section_outline() -> SectionOutline:
+    return SectionOutline(
+        heading="Introduction to Quantum Entanglement",
+        key_claims=["entanglement is non-local", "Bell tests confirm"],
+        source_ids=["https://www.nature.com/articles/quantum-entanglementa1b2c3d4e5f6"],
+        narrative_role="introduction",
+    )
+
+
+@pytest.fixture
+def sample_indexed_content() -> IndexedContent:
+    return IndexedContent(
+        passage_id="sp-a1b2c3d4",
+        embedding=[],
+        index_backend="",
     )

@@ -15,6 +15,7 @@ from deep_research_swarm.contracts import (
     ScoredDocument,
     SearchResult,
     SectionDraft,
+    SourcePassage,
     SubQuery,
     TokenUsage,
 )
@@ -95,3 +96,10 @@ class ResearchState(TypedDict):
 
     # Execution mode (persisted for resume)
     mode: Annotated[str, _replace]
+
+    # Passage grounding (V7) — accumulate across iterations
+    source_passages: Annotated[list[SourcePassage], operator.add]
+    citation_chain_results: Annotated[list[SearchResult], operator.add]
+
+    # Citation-to-passage mapping (V7) — replace each iteration (OE4, D3)
+    citation_to_passage_map: Annotated[dict[str, list[str]], _replace_dict]
