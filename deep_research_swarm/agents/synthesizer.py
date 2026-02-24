@@ -29,6 +29,10 @@ from deep_research_swarm.contracts import (
     SourcePassage,
 )
 from deep_research_swarm.graph.state import ResearchState
+from deep_research_swarm.scoring.claim_graph import (
+    extract_claims_from_section,
+    populate_claim_ids,
+)
 from deep_research_swarm.scoring.confidence import classify_confidence
 from deep_research_swarm.scoring.grounding import (
     assign_passages_to_sections,
@@ -796,5 +800,15 @@ async def synthesize(state: ResearchState, caller: AgentCaller) -> dict:
         research_gaps,
     )
     result["token_usage"] = all_usage
+
+    # --- Populate claim graph (V8, OE1) ---
+    all_claims: list[dict] = []
+    for sec in result.get("section_drafts", []):
+        all_claims.extend(extract_claims_from_section(sec))
+    if all_claims:
+        updated_passages = populate_claim_ids(
+            passages, all_claims, result.get("citation_to_passage_map", {})
+        )
+        result["source_passages"] = updated_passages
 
     return result
