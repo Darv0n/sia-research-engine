@@ -14,6 +14,10 @@ from __future__ import annotations
 import re
 
 from deep_research_swarm.contracts import SectionOutline, SourcePassage
+from deep_research_swarm.scoring.embedding_grounding import (
+    EmbeddingProvider,
+    verify_grounding_embedding,
+)
 
 STOPWORDS = frozenset(
     {
@@ -222,6 +226,8 @@ def compute_section_grounding_score(
     section_citations: list[str],
     passages: list[SourcePassage],
     citation_to_passage_map: dict[str, list[str]],
+    *,
+    embedding_provider: EmbeddingProvider | None = None,
 ) -> tuple[float, list[dict]]:
     """Compute grounding score for a section (OE3, D4).
 
@@ -277,6 +283,17 @@ def compute_section_grounding_score(
                     best_similarity = similarity
                     best_passage_id = pid
                     best_method = method
+
+                # Embedding fallback: if Jaccard didn't ground and provider available
+                if not grounded and embedding_provider is not None:
+                    emb_grounded, emb_sim, emb_method = verify_grounding_embedding(
+                        clean_claim, passage, embedding_provider
+                    )
+                    if emb_sim > best_similarity:
+                        best_grounded = emb_grounded
+                        best_similarity = emb_sim
+                        best_passage_id = pid
+                        best_method = emb_method
 
             if best_grounded:
                 grounded_count += 1
