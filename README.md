@@ -75,31 +75,11 @@ python -m deep_research_swarm "What is quantum entanglement?"
 
 ## Architecture
 
-```mermaid
-flowchart TD
-    HC[Health Check] --> P[Plan]
-    P --> PG{Plan Gate}
-    PG --> S[Search]
-    S --> AE[Adapt Extraction]
-    AE --> E[Extract]
-    E --> CH[Chunk Passages]
-    CH --> SC[Score]
-    SC --> AS[Adapt Synthesis]
-    AS --> CC[Citation Chain]
-    CC --> CD[Contradiction]
-    CD --> SY[Synthesize]
-    SY --> CR[Critique]
-    CR --> RB[Rollup Budget]
-    RB -- Not converged --> P
-    RB -- Converged --> RP[Report]
-    RP --> RG{Report Gate}
-```
+<p align="center">
+  <img src="docs/architecture.svg" alt="Pipeline Architecture" width="700">
+</p>
 
-**Model tiering**: Opus handles planning, synthesis, and report generation. Sonnet handles the three critic graders (5x cost reduction for structured evaluation).
-
-**State management**: LangGraph StateGraph with annotated reducers. Accumulating fields (sub-queries, search results) use `operator.add`. Overwrite fields (section drafts, citations) use replace-last-write semantics.
-
-**Adaptive nodes** (green): `adapt_extraction` and `adapt_synthesis` are deterministic overseer nodes that observe pipeline metrics and adjust tunables within bounded ranges. Dashed nodes are HITL-only gates (`--mode hitl`).
+**Model tiering**: Opus handles planning, synthesis, and report generation. Sonnet handles the three critic graders (5x cost reduction for structured evaluation). **State management**: LangGraph StateGraph with annotated reducers — accumulating fields use `operator.add`, overwrite fields use replace-last-write semantics.
 
 <details open>
 <summary><b>How It Works</b></summary>
