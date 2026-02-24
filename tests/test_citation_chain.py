@@ -511,7 +511,9 @@ class TestGraphWiring:
         for edge in g.edges:
             edges.add((edge.source, edge.target))
 
-        assert ("score", "citation_chain") in edges
+        assert ("score", "adapt_synthesis") in edges
+        assert ("adapt_synthesis", "citation_chain") in edges
         assert ("citation_chain", "contradiction") in edges
-        # Old direct edge should not exist
+        # Old direct edges should not exist
         assert ("score", "contradiction") not in edges
+        assert ("score", "citation_chain") not in edges

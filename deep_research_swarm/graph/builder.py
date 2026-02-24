@@ -14,6 +14,7 @@ from langgraph.graph import END, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 
 from deep_research_swarm.adaptive.adapt_extraction import adapt_extraction_node
+from deep_research_swarm.adaptive.adapt_synthesis import adapt_synthesis_node
 from deep_research_swarm.agents.base import AgentCaller
 from deep_research_swarm.agents.citation_chain import citation_chain
 from deep_research_swarm.agents.contradiction import detect_contradictions
@@ -393,6 +394,7 @@ def build_graph(
         "extract": extract_node,
         "chunk_passages": chunk_passages_node,
         "score": score_node,
+        "adapt_synthesis": adapt_synthesis_node,
         "citation_chain": citation_chain_node,
         "contradiction": contradiction_node,
         "synthesize": synthesize_node,
@@ -470,7 +472,8 @@ def build_graph(
     graph.add_edge("adapt_extraction", "extract")
     graph.add_edge("extract", "chunk_passages")
     graph.add_edge("chunk_passages", "score")
-    graph.add_edge("score", "citation_chain")
+    graph.add_edge("score", "adapt_synthesis")
+    graph.add_edge("adapt_synthesis", "citation_chain")
     graph.add_edge("citation_chain", "contradiction")
     graph.add_edge("contradiction", "synthesize")
     graph.add_edge("synthesize", "critique")

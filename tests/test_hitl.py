@@ -117,7 +117,8 @@ class TestHitlModeWithCheckpointer:
         assert ("adapt_extraction", "extract") in edges
         assert ("extract", "chunk_passages") in edges
         assert ("chunk_passages", "score") in edges
-        assert ("score", "citation_chain") in edges
+        assert ("score", "adapt_synthesis") in edges
+        assert ("adapt_synthesis", "citation_chain") in edges
         assert ("citation_chain", "contradiction") in edges
         assert ("contradiction", "synthesize") in edges
         assert ("synthesize", "critique") in edges

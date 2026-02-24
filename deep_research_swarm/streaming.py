@@ -14,6 +14,7 @@ NODE_LABELS: dict[str, str] = {
     "extract": "Extracting content",
     "chunk_passages": "Chunking passages",
     "score": "Scoring documents",
+    "adapt_synthesis": "Adapting synthesis",
     "citation_chain": "Citation chaining",
     "synthesize": "Synthesizing report",
     "critique": "Critiquing sections",
