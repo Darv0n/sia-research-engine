@@ -213,7 +213,7 @@ class AgentCaller:
         max_tokens: int = 4096,
         temperature: float = 0.0,
     ) -> tuple[dict, TokenUsage]:
-        """Make an API call expecting JSON response. Parses the response."""
+        """Make an API call expecting JSON response. Retries once on parse failure."""
         text, usage = await self.call(
             system=system,
             messages=messages,
@@ -227,15 +227,55 @@ class AgentCaller:
 
         try:
             data = json.loads(cleaned)
+            return data, usage
+        except json.JSONDecodeError as first_err:
+            pass  # Fall through to retry
+
+        # --- Single retry: feed the failed output back and demand strict JSON ---
+        retry_messages = messages + [
+            {"role": "assistant", "content": text},
+            {
+                "role": "user",
+                "content": (
+                    "Your previous response was not valid JSON. "
+                    "Return ONLY the JSON object — no commentary, no markdown fences, "
+                    "no explanation. Start with { and end with }."
+                ),
+            },
+        ]
+        text2, usage2 = await self.call(
+            system=system,
+            messages=retry_messages,
+            agent_name=f"{agent_name}_json_retry",
+            max_tokens=max_tokens,
+            temperature=0.0,
+        )
+
+        # Merge token usage
+        combined_usage = TokenUsage(
+            agent=agent_name,
+            model=usage["model"],
+            input_tokens=usage["input_tokens"] + usage2["input_tokens"],
+            output_tokens=usage["output_tokens"] + usage2["output_tokens"],
+            cost_usd=round(usage["cost_usd"] + usage2["cost_usd"], 6),
+            timestamp=usage2["timestamp"],
+        )
+
+        cleaned2 = _extract_json(text2)
+        try:
+            data = json.loads(cleaned2)
+            return data, combined_usage
         except json.JSONDecodeError as e:
             # Detect truncated responses (JSON cut off mid-stream)
-            stripped = cleaned.rstrip()
+            stripped = cleaned2.rstrip()
             if stripped and stripped[-1] not in ("}", "]"):
                 raise ValueError(
                     f"Truncated JSON from {agent_name} (likely hit max_tokens). "
-                    f"Response ends at char {len(cleaned)}. "
-                    f"Increase max_tokens for this agent.\nRaw tail: ...{text[-200:]}"
+                    f"Response ends at char {len(cleaned2)}. "
+                    f"Increase max_tokens for this agent.\nRaw tail: ...{text2[-200:]}"
                 )
-            raise ValueError(f"Failed to parse JSON from {agent_name}: {e}\nRaw: {text[:500]}")
-
-        return data, usage
+            raise ValueError(
+                f"Failed to parse JSON from {agent_name} after retry: {e}\n"
+                f"Raw (attempt 1): {text[:300]}\n"
+                f"Raw (attempt 2): {text2[:300]}"
+            )

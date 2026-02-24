@@ -73,12 +73,14 @@ def _wrap_with_logging(
     params = inspect.signature(fn).parameters
     has_config = len(params) >= 2
 
+    is_async = asyncio.iscoroutinefunction(fn)
+
     if has_config:
 
         async def logged_node(state: ResearchState, config: RunnableConfig | None = None) -> dict:
             start = time.monotonic()
             inputs_summary = _summarize_dict(state)
-            result = await fn(state, config)
+            result = (await fn(state, config)) if is_async else fn(state, config)
             elapsed = time.monotonic() - start
             token_usage = result.get("token_usage", [])
             tokens = sum(u.get("input_tokens", 0) + u.get("output_tokens", 0) for u in token_usage)
@@ -100,7 +102,7 @@ def _wrap_with_logging(
         async def logged_node(state: ResearchState) -> dict:
             start = time.monotonic()
             inputs_summary = _summarize_dict(state)
-            result = await fn(state)
+            result = (await fn(state)) if is_async else fn(state)
             elapsed = time.monotonic() - start
             token_usage = result.get("token_usage", [])
             tokens = sum(u.get("input_tokens", 0) + u.get("output_tokens", 0) for u in token_usage)
