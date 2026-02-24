@@ -146,6 +146,7 @@ Output STRICT JSON (no markdown, no commentary):
 
 def _build_source_context(
     scored_docs: list[ScoredDocument],
+    *,
     max_docs: int = 20,
 ) -> tuple[str, dict[int, ScoredDocument]]:
     """Build numbered source context for the outline prompt."""
@@ -206,6 +207,10 @@ def _validate_outline(
     sections: list[SectionOutline],
     passages: list[SourcePassage],
     scored_documents: list[ScoredDocument],
+    *,
+    max_sections: int = 7,
+    min_sections: int = 3,
+    max_passages_per_section: int = 8,
 ) -> tuple[bool, list[str]]:
     """Validate outline structure. Returns (is_valid, failures)."""
     failures: list[str] = []
@@ -220,16 +225,21 @@ def _validate_outline(
             )
 
     # Check 2: passage coverage — each section can get passages
-    section_passages = assign_passages_to_sections(sections, passages)
+    section_passages = assign_passages_to_sections(
+        sections, passages, max_passages_per_section=max_passages_per_section
+    )
     for section in sections:
         if not section_passages.get(section["heading"]):
             failures.append(f"Section '{section['heading']}' has no assignable passages")
 
     # Check 3: section count within budget
-    max_sections = min(7, max(3, len(passages) // 5)) if passages else 3
-    if len(sections) > max_sections:
+    if passages:
+        budget_max = min(max_sections, max(min_sections, len(passages) // 5))
+    else:
+        budget_max = min_sections
+    if len(sections) > budget_max:
         failures.append(
-            f"Outline has {len(sections)} sections but passage budget supports max {max_sections}"
+            f"Outline has {len(sections)} sections but passage budget supports max {budget_max}"
         )
 
     # Check 4: all sections have key_claims
@@ -248,6 +258,9 @@ async def _generate_outline(
     caller: AgentCaller,
     *,
     revision_failures: list[str] | None = None,
+    max_sections: int = 7,
+    min_sections: int = 3,
+    max_docs_for_outline: int = 20,
 ) -> tuple[list[SectionOutline], dict, list]:
     """Generate outline via LLM. Returns (sections, raw_data, token_usage_list)."""
     scored_docs = state.get("scored_documents", [])
@@ -255,15 +268,18 @@ async def _generate_outline(
     contradictions = state.get("contradictions", [])
 
     total_passage_count = len(passages)
-    max_sections = min(7, max(3, total_passage_count // 5)) if total_passage_count else 3
-    min_sections = min(3, max_sections)
+    if total_passage_count:
+        effective_max = min(max_sections, max(min_sections, total_passage_count // 5))
+    else:
+        effective_max = min_sections
+    effective_min = min(min_sections, effective_max)
 
-    sources_text, _ = _build_source_context(scored_docs)
+    sources_text, _ = _build_source_context(scored_docs, max_docs=max_docs_for_outline)
     contradiction_summary = _summarize_contradictions(contradictions)
 
     system = OUTLINE_SYSTEM.format(
-        min_sections=min_sections,
-        max_sections=max_sections,
+        min_sections=effective_min,
+        max_sections=effective_max,
     )
 
     user_parts = [
@@ -548,6 +564,15 @@ async def synthesize(state: ResearchState, caller: AgentCaller) -> dict:
     current_iteration = state.get("current_iteration", 1)
     prev_sections = state.get("section_drafts", [])
 
+    # Read adaptive tunables (V8) — fall back to V7 hardcoded defaults
+    _snap = state.get("tunable_snapshot", {})
+    grounding_pass = _snap.get("grounding_pass_threshold", GROUNDING_PASS_THRESHOLD)
+    max_refine = int(_snap.get("max_refinement_attempts", MAX_REFINEMENT_ATTEMPTS))
+    max_secs = int(_snap.get("max_sections", 7))
+    min_secs = int(_snap.get("min_sections", 3))
+    max_docs_outline = int(_snap.get("max_docs_for_outline", 20))
+    max_pp_sec = int(_snap.get("max_passages_per_section", 8))
+
     if not scored_docs:
         return {
             "section_drafts": [
@@ -570,25 +595,36 @@ async def synthesize(state: ResearchState, caller: AgentCaller) -> dict:
     all_usage: list = []
 
     # --- Stage 1: Generate outline ---
-    sections, outline_data, usage = await _generate_outline(state, caller)
+    sections, outline_data, usage = await _generate_outline(
+        state, caller,
+        max_sections=max_secs, min_sections=min_secs, max_docs_for_outline=max_docs_outline,
+    )
     all_usage.extend(usage)
 
     # --- Stage 0: Validate outline ---
-    is_valid, failures = _validate_outline(sections, passages, scored_docs)
+    is_valid, failures = _validate_outline(
+        sections, passages, scored_docs,
+        max_sections=max_secs, min_sections=min_secs, max_passages_per_section=max_pp_sec,
+    )
 
     if not is_valid:
         # One revision pass
         sections, outline_data, usage = await _generate_outline(
-            state,
-            caller,
+            state, caller,
             revision_failures=failures,
+            max_sections=max_secs, min_sections=min_secs, max_docs_for_outline=max_docs_outline,
         )
         all_usage.extend(usage)
 
-        is_valid, failures = _validate_outline(sections, passages, scored_docs)
+        is_valid, failures = _validate_outline(
+            sections, passages, scored_docs,
+            max_sections=max_secs, min_sections=min_secs, max_passages_per_section=max_pp_sec,
+        )
         if not is_valid:
             # Drop sections with no assignable passages
-            section_passages_check = assign_passages_to_sections(sections, passages)
+            section_passages_check = assign_passages_to_sections(
+                sections, passages, max_passages_per_section=max_pp_sec,
+            )
             sections = [s for s in sections if section_passages_check.get(s["heading"])]
 
     if not sections:
@@ -612,7 +648,9 @@ async def synthesize(state: ResearchState, caller: AgentCaller) -> dict:
         }
 
     # --- Assign passages to sections ---
-    section_passages = assign_passages_to_sections(sections, passages)
+    section_passages = assign_passages_to_sections(
+        sections, passages, max_passages_per_section=max_pp_sec,
+    )
 
     # Iteration 2+: keep HIGH grounding sections from previous iteration
     keep_headings: set[str] = set()
@@ -620,7 +658,7 @@ async def synthesize(state: ResearchState, caller: AgentCaller) -> dict:
     if current_iteration > 1 and prev_sections:
         for prev in prev_sections:
             gs = prev.get("grounding_score", 0)
-            if gs >= GROUNDING_PASS_THRESHOLD:
+            if gs >= grounding_pass:
                 conf = prev.get("confidence_level")
                 if conf == Confidence.HIGH or conf == "HIGH":
                     keep_headings.add(prev["heading"])
@@ -685,7 +723,7 @@ async def synthesize(state: ResearchState, caller: AgentCaller) -> dict:
             citation_to_passage_map,
         )
 
-        if score >= GROUNDING_PASS_THRESHOLD or heading in keep_headings:
+        if score >= grounding_pass or heading in keep_headings:
             verified.append((draft, score, details))
         else:
             needs_refinement.append((draft, score, details, heading))
@@ -696,7 +734,7 @@ async def synthesize(state: ResearchState, caller: AgentCaller) -> dict:
         refined_score = score
         refined_details = details
 
-        for _attempt in range(MAX_REFINEMENT_ATTEMPTS):
+        for _attempt in range(max_refine):
             section_p = section_passages.get(heading, [])
             refined_draft, usage = await _refine_section(
                 refined_draft,
@@ -721,7 +759,7 @@ async def synthesize(state: ResearchState, caller: AgentCaller) -> dict:
                 citation_to_passage_map,
             )
 
-            if refined_score >= GROUNDING_PASS_THRESHOLD:
+            if refined_score >= grounding_pass:
                 break
 
         # Accept section regardless (critique handles remaining issues)

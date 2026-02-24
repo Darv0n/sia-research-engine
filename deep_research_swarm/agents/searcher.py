@@ -16,6 +16,7 @@ async def search_sub_query(
     *,
     backend_configs: dict[str, dict] | None = None,
     cache: SearchCache | None = None,
+    num_results: int = 10,
 ) -> list[SearchResult]:
     """Search a single sub-query across its assigned backends.
 
@@ -25,7 +26,6 @@ async def search_sub_query(
     """
     backend_configs = backend_configs or {}
     all_results: list[SearchResult] = []
-    num_results = 10
 
     for backend_name in sub_query["search_backends"]:
         try:

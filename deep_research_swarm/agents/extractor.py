@@ -8,7 +8,11 @@ from deep_research_swarm.contracts import ExtractedContent, SearchResult
 from deep_research_swarm.extractors import extract
 
 
-async def extract_content(search_result: SearchResult) -> ExtractedContent:
+async def extract_content(
+    search_result: SearchResult,
+    *,
+    content_truncation_chars: int = 50000,
+) -> ExtractedContent:
     """Extract content from a single search result URL.
 
     Uses the extraction cascade: Crawl4AI -> Trafilatura.
@@ -30,7 +34,7 @@ async def extract_content(search_result: SearchResult) -> ExtractedContent:
         search_result_id=search_result["id"],
         url=url,
         title=search_result["title"],
-        content=content[:50000],  # Cap at 50k chars per document
+        content=content[:content_truncation_chars],
         content_length=len(content),
         extractor_used=extractor_used,
         extraction_success=success,

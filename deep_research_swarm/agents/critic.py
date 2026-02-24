@@ -195,7 +195,11 @@ async def critique(
         replan = False
         reason = f"max_iterations_reached ({max_iterations})"
 
-    if total_tokens > token_budget * 0.9:
+    # Read adaptive tunable (V8) — fall back to 0.9
+    _snap = state.get("tunable_snapshot", {})
+    budget_exhaust_pct = _snap.get("budget_exhaustion_pct", 0.9)
+
+    if total_tokens > token_budget * budget_exhaust_pct:
         replan = False
         reason = f"budget_nearly_exhausted ({total_tokens}/{token_budget})"
 

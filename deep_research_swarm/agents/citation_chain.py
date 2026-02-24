@@ -153,6 +153,12 @@ async def citation_chain(
     if not s2_backend or not _has_scholarly_results(state):
         return {}
 
+    # Read adaptive tunables (V8) — fall back to module-level defaults
+    _snap = state.get("tunable_snapshot", {})
+    budget = int(_snap.get("citation_chain_budget", _BUDGET))
+    max_hops = int(_snap.get("citation_chain_max_hops", _MAX_HOPS))
+    top_seeds = int(_snap.get("citation_chain_top_seeds", _TOP_SEEDS))
+
     question = state.get("research_question", "")
 
     # Collect seed paper IDs from top scored documents
@@ -176,7 +182,7 @@ async def citation_chain(
 
     # Take top N seeds by combined_score
     seeds.sort(key=lambda x: x[0], reverse=True)
-    seed_ids = [pid for _, pid in seeds[:_TOP_SEEDS]]
+    seed_ids = [pid for _, pid in seeds[:top_seeds]]
 
     if not seed_ids:
         return {}
@@ -204,8 +210,8 @@ async def citation_chain(
     frontier = list(seed_ids)
     new_results: list[SearchResult] = []
 
-    for hop in range(_MAX_HOPS):
-        if len(seen) >= _BUDGET:
+    for hop in range(max_hops):
+        if len(seen) >= budget:
             break
 
         # Collect all candidate references/citations from frontier papers
@@ -213,7 +219,7 @@ async def citation_chain(
         candidates: list[tuple[float, str, str]] = []
 
         for paper_id in frontier:
-            if len(seen) >= _BUDGET:
+            if len(seen) >= budget:
                 break
 
             details = await s2_backend.get_paper_details(paper_id)
@@ -245,7 +251,7 @@ async def citation_chain(
         fetched = 0
 
         while candidates and fetched < _CANDIDATES_PER_HOP:
-            if len(seen) >= _BUDGET:
+            if len(seen) >= budget:
                 break
 
             neg_score, cand_id, cand_title = heapq.heappop(candidates)

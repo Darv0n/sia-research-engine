@@ -233,8 +233,15 @@ def build_graph(
             msg = f"dispatching {len(latest_queries)} queries"
             writer({"kind": "search_progress", "message": msg})
 
+        # Read adaptive tunable (V8) — fall back to 10
+        _snap = state.get("tunable_snapshot", {})
+        num_results = int(_snap.get("results_per_query", 10))
+
         tasks = [
-            search_sub_query(sq, backend_configs=backend_configs, cache=search_cache)
+            search_sub_query(
+                sq, backend_configs=backend_configs, cache=search_cache,
+                num_results=num_results,
+            )
             for sq in latest_queries
         ]
         results_lists = await asyncio.gather(*tasks, return_exceptions=True)
@@ -264,7 +271,12 @@ def build_graph(
                 seen_urls.add(sr["url"])
                 unique_results.append(sr)
 
-        capped = unique_results[:30]
+        # Read adaptive tunables (V8) — fall back to V7 defaults
+        _snap = state.get("tunable_snapshot", {})
+        extraction_cap = int(_snap.get("extraction_cap", 30))
+        content_trunc = int(_snap.get("content_truncation_chars", 50000))
+
+        capped = unique_results[:extraction_cap]
 
         if writer:
             writer({"kind": "extract_progress", "message": f"extracting {len(capped)} URLs"})
@@ -274,7 +286,7 @@ def build_graph(
 
         async def extract_with_sem(sr):
             async with sem:
-                return await extract_content(sr)
+                return await extract_content(sr, content_truncation_chars=content_trunc)
 
         tasks = [extract_with_sem(sr) for sr in capped]
         results = await asyncio.gather(*tasks, return_exceptions=True)
@@ -347,7 +359,13 @@ def build_graph(
         if len(scored_docs) < 2:
             return {"contradictions": []}
 
-        contradictions, usage = await detect_contradictions(scored_docs, sonnet_caller)
+        # Read adaptive tunable (V8) — fall back to 10
+        _snap = state.get("tunable_snapshot", {})
+        max_docs = int(_snap.get("contradiction_max_docs", 10))
+
+        contradictions, usage = await detect_contradictions(
+            scored_docs, sonnet_caller, max_docs=max_docs
+        )
         result: dict = {"contradictions": contradictions}
         if usage:
             result["token_usage"] = [usage]

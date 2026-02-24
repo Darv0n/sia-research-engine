@@ -41,12 +41,15 @@ async def detect_contradictions(
     scored_documents: list[ScoredDocument],
     caller: AgentCaller,
     *,
-    max_docs: int = 10,
+    max_docs: int | None = None,
 ) -> tuple[list[Contradiction], dict]:
     """Detect contradictions among the top scored documents.
 
+    max_docs defaults to 10 (V7 behavior) when not provided by tunable.
     Returns (list of Contradiction dicts, token_usage).
     """
+    if max_docs is None:
+        max_docs = 10
     if len(scored_documents) < 2:
         return [], {}
 
