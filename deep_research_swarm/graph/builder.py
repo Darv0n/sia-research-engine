@@ -32,6 +32,12 @@ from deep_research_swarm.graph.state import ResearchState
 from deep_research_swarm.reporting.renderer import render_report
 from deep_research_swarm.scoring.diversity import compute_diversity
 from deep_research_swarm.scoring.rrf import build_scored_documents
+from deep_research_swarm.sia.entropy import (
+    compute_entropy,
+    detect_dominance,
+    detect_false_convergence,
+    entropy_gate,
+)
 
 if TYPE_CHECKING:
     from deep_research_swarm.event_log.writer import EventLog
@@ -592,6 +598,68 @@ def build_graph(
             state, sonnet_caller, convergence_threshold=settings.convergence_threshold
         )
 
+    async def compute_entropy_node(
+        state: ResearchState,
+        config: RunnableConfig | None = None,
+    ) -> dict:
+        """Compute thermodynamic entropy from state observables (V10/SIA)."""
+        prev_entropy = state.get("entropy_state") or None
+        entropy = compute_entropy(state, prev_entropy)
+
+        # Check entropy gate
+        section_drafts = state.get("section_drafts", [])
+        gate_ok, gate_reason = entropy_gate(entropy, section_drafts)
+
+        # Check false convergence
+        contradictions = state.get("contradictions", [])
+        false_conv, false_reason = detect_false_convergence(
+            entropy, section_drafts, contradictions, prev_entropy
+        )
+
+        # Check dominance
+        entropy_history = state.get("entropy_history", [])
+        dom, dom_reason = detect_dominance(entropy_history, section_drafts)
+
+        # If entropy blocks convergence, override critic's decision
+        result: dict = {
+            "entropy_state": dict(entropy),
+            "entropy_history": [dict(entropy)],
+        }
+
+        if state.get("converged", False):
+            # Entropy can veto convergence
+            if not gate_ok:
+                result["converged"] = False
+                result["convergence_reason"] = f"entropy_veto: {gate_reason}"
+            elif false_conv:
+                result["converged"] = False
+                result["convergence_reason"] = f"false_convergence: {false_reason}"
+            elif dom:
+                result["converged"] = False
+                result["convergence_reason"] = f"dominance_detected: {dom_reason}"
+
+        # Stream entropy event if writer available
+        writer = _get_stream_writer(config)
+        if writer:
+            try:
+                writer(
+                    {
+                        "kind": "entropy_computed",
+                        "e": entropy["e"],
+                        "band": entropy["band"],
+                        "components": {
+                            "amb": entropy["e_amb"],
+                            "conf": entropy["e_conf"],
+                            "nov": entropy["e_nov"],
+                            "trust": entropy["e_trust"],
+                        },
+                    }
+                )
+            except Exception:
+                pass
+
+        return result
+
     async def rollup_budget_node(state: ResearchState) -> dict:
         """Roll up token_usage list into totals for budget tracking."""
         usage_list = state.get("token_usage", [])
@@ -635,6 +703,7 @@ def build_graph(
         "contradiction": contradiction_node,
         "synthesize": synthesize_node,
         "critique": critique_node,
+        "compute_entropy": compute_entropy_node,
         "rollup_budget": rollup_budget_node,
         "report": report_node,
     }
@@ -735,7 +804,8 @@ def build_graph(
     graph.add_edge("citation_chain", "contradiction")
     graph.add_edge("contradiction", "synthesize")
     graph.add_edge("synthesize", "critique")
-    graph.add_edge("critique", "rollup_budget")
+    graph.add_edge("critique", "compute_entropy")
+    graph.add_edge("compute_entropy", "rollup_budget")
 
     # Conditional: rollup_budget -> report (converged) or rollup_budget -> plan (re-plan)
     graph.add_conditional_edges(

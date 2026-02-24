@@ -125,7 +125,9 @@ class TestHitlModeWithCheckpointer:
         assert ("citation_chain", "contradiction") in edges
         assert ("contradiction", "synthesize") in edges
         assert ("synthesize", "critique") in edges
-        assert ("critique", "rollup_budget") in edges
+        # V10: critique -> compute_entropy -> rollup_budget
+        assert ("critique", "compute_entropy") in edges
+        assert ("compute_entropy", "rollup_budget") in edges
 
 
 class TestConfigModeValidation:

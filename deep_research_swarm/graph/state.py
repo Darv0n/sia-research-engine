@@ -117,3 +117,7 @@ class ResearchState(TypedDict):
 
     # Pre-research clarification (V9) — scope hints
     scope_hints: Annotated[dict, _replace_dict]
+
+    # Entropy thermodynamics (V10/SIA) — convergence control
+    entropy_state: Annotated[dict, _replace_dict]
+    entropy_history: Annotated[list[dict], operator.add]
