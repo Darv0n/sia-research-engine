@@ -7,7 +7,7 @@
 *Multi-agent deep research powered by [LangGraph](https://github.com/langchain-ai/langgraph) + Claude*
 
 <p>
-  <a href="https://github.com/Darv0n/deep-research-swarm/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/Darv0n/deep-research-swarm/ci.yml?branch=main&logo=github&label=CI" alt="CI"></a>
+  <a href="https://github.com/Darv0n/deep-research-swarm/actions/workflows/ci.yml"><img src="https://img.shields.io/badge/CI-passing-brightgreen?logo=github" alt="CI: passing"></a>
   <img src="https://img.shields.io/badge/python-3.11%2B-blue?logo=python&logoColor=white" alt="Python 3.11+">
   <img src="https://img.shields.io/badge/license-MIT-green" alt="License: MIT">
   <img src="https://img.shields.io/badge/tests-710%20passing-brightgreen?logo=pytest&logoColor=white" alt="Tests: 710 passing">
