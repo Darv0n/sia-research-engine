@@ -51,12 +51,16 @@ async def _make_checkpointer(settings, db_path: str):
             yield checkpointer
         return
 
-    # Default: sqlite
+    # Default: sqlite — use WAL mode + generous busy_timeout to prevent
+    # "database is locked" errors under large state writes.
+    import aiosqlite
     from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 
     Path(db_path).parent.mkdir(parents=True, exist_ok=True)
-    async with AsyncSqliteSaver.from_conn_string(db_path) as checkpointer:
-        yield checkpointer
+    async with aiosqlite.connect(db_path, timeout=30) as conn:
+        await conn.execute("PRAGMA journal_mode=WAL")
+        await conn.execute("PRAGMA busy_timeout=30000")
+        yield AsyncSqliteSaver(conn)
 
 
 def parse_args() -> argparse.Namespace:
@@ -193,6 +197,11 @@ def parse_args() -> argparse.Namespace:
     return args
 
 
+def _has_checkpointer(graph) -> bool:
+    """Check whether the compiled graph has a checkpointer attached."""
+    return getattr(graph, "checkpointer", None) is not None
+
+
 async def _execute(
     graph,
     input_state: dict | None,
@@ -207,13 +216,15 @@ async def _execute(
     """
     if no_stream:
         result = await graph.ainvoke(input_state, config=config)
-        final_state = await graph.aget_state(config=config)
-        if final_state and final_state.next:
-            _print_interrupt_from_state(final_state, config)
-            return None
+        if _has_checkpointer(graph):
+            final_state = await graph.aget_state(config=config)
+            if final_state and final_state.next:
+                _print_interrupt_from_state(final_state, config)
+                return None
         return result
 
     display = StreamDisplay(verbose=verbose)
+    accumulated_state: dict = {}
 
     async for event in graph.astream(
         input_state,
@@ -224,17 +235,25 @@ async def _execute(
             stream_mode, payload = event
             if stream_mode == "updates":
                 display.handle_update(payload)
+                # Accumulate state from node outputs: {node_name: {field: val}}
+                if isinstance(payload, dict):
+                    for node_output in payload.values():
+                        if isinstance(node_output, dict):
+                            accumulated_state.update(node_output)
             elif stream_mode == "custom":
                 display.handle_custom(payload)
 
-    # Retrieve final state via checkpoint
-    final_state = await graph.aget_state(config=config)
-    if final_state and final_state.next:
-        _print_interrupt_from_state(final_state, config)
-        return None
-    if final_state and hasattr(final_state, "values"):
-        return final_state.values
-    return {}
+    # Retrieve final state via checkpoint (if available)
+    if _has_checkpointer(graph):
+        final_state = await graph.aget_state(config=config)
+        if final_state and final_state.next:
+            _print_interrupt_from_state(final_state, config)
+            return None
+        if final_state and hasattr(final_state, "values"):
+            return final_state.values
+
+    # Fallback: reconstructed from streamed node outputs (no checkpointer)
+    return accumulated_state
 
 
 def _print_interrupt_from_state(state_snapshot, config: dict) -> None:

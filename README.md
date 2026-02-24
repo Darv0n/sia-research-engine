@@ -493,7 +493,7 @@ deep-research-swarm/
 │   │
 │   └── streaming.py             # StreamDisplay for astream progress
 │
-├── tests/                       # 472 tests across 30+ modules
+├── tests/                       # 480 tests across 30+ modules
 ├── docker/                      # SearXNG Docker configuration
 ├── output/                      # Generated reports (gitignored)
 ├── checkpoints/                 # SQLite checkpoint DB (gitignored)
@@ -520,7 +520,7 @@ pytest tests/test_rrf.py -v
 python -m deep_research_swarm "What is quantum entanglement?"
 ```
 
-**472 tests** covering:
+**480 tests** covering:
 
 | Module | Tests | Coverage |
 |--------|-------|----------|
@@ -540,6 +540,7 @@ python -m deep_research_swarm "What is quantum entanglement?"
 | PDF extraction | 9 | URL detection, cascade routing, local/remote extraction |
 | Trends | 5 | Sparkline rendering, new/dropped sections |
 | Resume/checkpoint | 15 | Arg parsing, resume validation, V7 CLI flags |
+| Checkpoint robustness | 8 | WAL mode, busy_timeout, large state writes, concurrent contention, no-checkpointer fallback |
 | Dump state | 5 | CLI flags, memory context formatting |
 | Memory store | 11 | Add/list, search, persistence, graceful degradation |
 | Memory extract | 3 | Full state, empty state, missing fields |

@@ -27,6 +27,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Config: `OPENALEX_EMAIL`, `OPENALEX_API_KEY`, `S2_API_KEY`, `WAYBACK_ENABLED`, `WAYBACK_TIMEOUT`
 - 233 new tests (472 total)
 
+## [0.7.1] - 2026-02-24
+
+### Fixed
+- SQLite checkpoint "database is locked" crash under large state — `_make_checkpointer()` now sets `PRAGMA journal_mode=WAL` and `PRAGMA busy_timeout=30000` on the SQLite connection, preventing lock contention during concurrent reads/writes with 1000+ scored documents
+- `_execute()` crash with "No checkpointer set" when `CHECKPOINT_BACKEND=none` — added `_has_checkpointer()` guard around `aget_state()` calls, with stream-accumulated state fallback for checkpointer-free runs
+- 8 new tests (480 total): WAL mode verification, busy_timeout threshold, large state write, concurrent write contention, `_has_checkpointer` helper
+
 ### Changed
 - Pipeline now includes `chunk_passages` node between extract and score, and `citation_chain` node between score and contradiction
 - Synthesizer completely rewritten: outline-first with parallel section drafting, passage-narrowed context, mechanical grounding verification

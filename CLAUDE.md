@@ -3,7 +3,7 @@
 ## Current State
 
 - **Version**: V7 (niche retrieval: scholarly backends, archive fallback, citation chaining, provenance, grounded synthesis)
-- **Tests**: 472 passing (run with `.venv/Scripts/python.exe -m pytest tests/ -v`)
+- **Tests**: 480 passing (run with `.venv/Scripts/python.exe -m pytest tests/ -v`)
 - **Repo**: https://github.com/Darv0n/deep-research-swarm.git
 
 ## Architecture
@@ -113,7 +113,7 @@ ProvenanceRecord, ScholarlyMetadata, ArchiveCapture, SourcePassage, SectionOutli
 ## Testing
 
 ```bash
-.venv/Scripts/python.exe -m pytest tests/ -v                    # All 472 tests
+.venv/Scripts/python.exe -m pytest tests/ -v                    # All 480 tests
 .venv/Scripts/python.exe -m pytest tests/ -k "not integration"  # Unit only
 .venv/Scripts/python.exe -m ruff check . && .venv/Scripts/python.exe -m ruff format --check .
 ```
