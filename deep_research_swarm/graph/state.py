@@ -6,7 +6,9 @@ import operator
 from typing import Annotated, TypedDict
 
 from deep_research_swarm.contracts import (
+    AdaptationEvent,
     Citation,
+    ComplexityProfile,
     Contradiction,
     DiversityMetrics,
     ExtractedContent,
@@ -103,3 +105,8 @@ class ResearchState(TypedDict):
 
     # Citation-to-passage mapping (V7) — replace each iteration (OE4, D3)
     citation_to_passage_map: Annotated[dict[str, list[str]], _replace_dict]
+
+    # Adaptive control (V8) — overseer state
+    tunable_snapshot: Annotated[dict, _replace_dict]
+    adaptation_events: Annotated[list[AdaptationEvent], operator.add]
+    complexity_profile: Annotated[ComplexityProfile, _replace_dict]

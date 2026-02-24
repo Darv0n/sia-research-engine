@@ -254,6 +254,47 @@ class IterationRecord(TypedDict):
     section_snapshots: list[SectionConfidenceSnapshot]
 
 
+# --- Adaptive Control (V8) ---
+
+
+class Tunable(TypedDict):
+    """Definition of a single tunable parameter with bounded range."""
+
+    name: str
+    default: int | float
+    floor: int | float
+    ceiling: int | float
+    category: str  # "extraction" | "scoring" | "grounding" | "search" | "synthesis"
+
+
+class ComplexityProfile(TypedDict):
+    """Observed pipeline metrics driving adaptive decisions."""
+
+    result_count: int
+    backends_used: int
+    iteration: int
+    extraction_success_rate: float  # 0-1
+    mean_grounding_score: float  # 0-1
+    token_spend_rate: float  # tokens_used / token_budget
+    scored_doc_count: int
+    citation_chain_yield: int  # papers found in citation chain
+    volume_factor: float  # log10 scaling of result count
+    backend_factor: float  # backend diversity scaling
+    iter_factor: float  # iteration progression scaling
+    multiplier: float  # final composite multiplier (0.5-2.0)
+
+
+class AdaptationEvent(TypedDict):
+    """Record of a single adaptive adjustment made by the overseer."""
+
+    tunable_name: str
+    old_value: int | float
+    new_value: int | float
+    reason: str  # human-readable explanation
+    trigger: str  # "adapt_extraction" | "adapt_synthesis"
+    iteration: int
+
+
 # --- Protocols ---
 
 

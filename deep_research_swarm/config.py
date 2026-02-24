@@ -96,6 +96,23 @@ class Settings:
         default_factory=lambda: int(os.environ.get("WAYBACK_TIMEOUT", "15"))
     )
 
+    # Adaptive control (V8)
+    adaptive_mode: bool = field(
+        default_factory=lambda: os.environ.get("ADAPTIVE_MODE", "true").lower() == "true"
+    )
+
+    # Embedding model (V8, optional — only used when fastembed installed)
+    embedding_model: str = field(
+        default_factory=lambda: os.environ.get(
+            "EMBEDDING_MODEL", "BAAI/bge-small-en-v1.5"
+        )
+    )
+
+    # GROBID server (V8, optional — for structured PDF extraction)
+    grobid_url: str = field(
+        default_factory=lambda: os.environ.get("GROBID_URL", "")
+    )
+
     def available_backends(self) -> list[str]:
         """Return list of backends that have valid configuration."""
         backends = ["searxng"]  # Always available (local)
