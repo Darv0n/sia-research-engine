@@ -10,6 +10,7 @@ import yaml
 if TYPE_CHECKING:
     from deep_research_swarm.graph.state import ResearchState
 
+from deep_research_swarm.reporting.adaptive_section import render_adaptive_section
 from deep_research_swarm.reporting.citations import (
     build_bibliography,
     deduplicate_and_renumber,
@@ -173,6 +174,14 @@ def render_report(state: "ResearchState") -> str:
         lines.append("## Source Provenance")
         lines.append("")
         lines.append(provenance_table)
+        lines.append("")
+
+    # --- Adaptive Adjustments (V8) ---
+    adaptation_events = state.get("adaptation_events", [])
+    complexity_profile = state.get("complexity_profile")
+    adaptive_section = render_adaptive_section(adaptation_events, complexity_profile)
+    if adaptive_section:
+        lines.append(adaptive_section)
         lines.append("")
 
     # --- Metadata ---
