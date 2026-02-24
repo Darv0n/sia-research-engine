@@ -113,7 +113,8 @@ class TestHitlModeWithCheckpointer:
         graph = build_graph(settings, checkpointer=checkpointer, mode="hitl")
         edges = _get_edges(graph)
         assert ("health_check", "plan") in edges
-        assert ("search", "extract") in edges
+        assert ("search", "adapt_extraction") in edges
+        assert ("adapt_extraction", "extract") in edges
         assert ("extract", "chunk_passages") in edges
         assert ("chunk_passages", "score") in edges
         assert ("score", "citation_chain") in edges

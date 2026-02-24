@@ -13,6 +13,7 @@ from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.graph import END, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 
+from deep_research_swarm.adaptive.adapt_extraction import adapt_extraction_node
 from deep_research_swarm.agents.base import AgentCaller
 from deep_research_swarm.agents.citation_chain import citation_chain
 from deep_research_swarm.agents.contradiction import detect_contradictions
@@ -388,6 +389,7 @@ def build_graph(
         "health_check": health_check_node,
         "plan": plan_node,
         "search": search_node,
+        "adapt_extraction": adapt_extraction_node,
         "extract": extract_node,
         "chunk_passages": chunk_passages_node,
         "score": score_node,
@@ -464,7 +466,8 @@ def build_graph(
     else:
         graph.add_edge("plan", "search")
 
-    graph.add_edge("search", "extract")
+    graph.add_edge("search", "adapt_extraction")
+    graph.add_edge("adapt_extraction", "extract")
     graph.add_edge("extract", "chunk_passages")
     graph.add_edge("chunk_passages", "score")
     graph.add_edge("score", "citation_chain")

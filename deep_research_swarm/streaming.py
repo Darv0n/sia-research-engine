@@ -10,6 +10,7 @@ NODE_LABELS: dict[str, str] = {
     "health_check": "Checking backends",
     "plan": "Planning research",
     "search": "Searching sources",
+    "adapt_extraction": "Adapting extraction",
     "extract": "Extracting content",
     "chunk_passages": "Chunking passages",
     "score": "Scoring documents",
