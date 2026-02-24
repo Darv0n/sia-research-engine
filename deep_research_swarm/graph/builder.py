@@ -284,9 +284,13 @@ def build_graph(
         # Limit concurrent extractions
         sem = asyncio.Semaphore(settings.max_concurrent_requests)
 
+        _grobid_url = settings.grobid_url
+
         async def extract_with_sem(sr):
             async with sem:
-                return await extract_content(sr, content_truncation_chars=content_trunc)
+                return await extract_content(
+                    sr, content_truncation_chars=content_trunc, grobid_url=_grobid_url
+                )
 
         tasks = [extract_with_sem(sr) for sr in capped]
         results = await asyncio.gather(*tasks, return_exceptions=True)

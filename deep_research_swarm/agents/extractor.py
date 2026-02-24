@@ -12,15 +12,16 @@ async def extract_content(
     search_result: SearchResult,
     *,
     content_truncation_chars: int = 50000,
+    grobid_url: str = "",
 ) -> ExtractedContent:
     """Extract content from a single search result URL.
 
-    Uses the extraction cascade: Crawl4AI -> Trafilatura.
+    Uses the extraction cascade: PDF -> GROBID -> OCR -> Crawl4AI -> Trafilatura -> Wayback.
     """
     url = search_result["url"]
 
     try:
-        content, extractor_used = await extract(url)
+        content, extractor_used = await extract(url, grobid_url=grobid_url)
         success = bool(content)
         error = None if success else "No content extracted"
     except Exception as e:
