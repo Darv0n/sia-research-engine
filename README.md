@@ -90,18 +90,9 @@ flowchart TD
     CD --> SY[Synthesize]
     SY --> CR[Critique]
     CR --> RB[Rollup Budget]
-    RB -->|Not converged| P
-    RB -->|Converged| RP[Report]
+    RB -- Not converged --> P
+    RB -- Converged --> RP[Report]
     RP --> RG{Report Gate}
-
-    style P fill:#4a9eff,color:white
-    style SY fill:#4a9eff,color:white
-    style CR fill:#ff6b6b,color:white
-    style SC fill:#ffa94d,color:white
-    style AE fill:#69db7c
-    style AS fill:#69db7c
-    style PG fill:none,stroke:#999,stroke-dasharray: 5 5
-    style RG fill:none,stroke:#999,stroke-dasharray: 5 5
 ```
 
 **Model tiering**: Opus handles planning, synthesis, and report generation. Sonnet handles the three critic graders (5x cost reduction for structured evaluation).
