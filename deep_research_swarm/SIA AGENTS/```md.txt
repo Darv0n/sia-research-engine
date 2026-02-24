@@ -1,0 +1,430 @@
+```md
+# docs/Inter-AgentCovenants.md
+## Covenant Layer
+This document defines **inter-agent covenants**: stable, repeatable *relational physics* between memeplex ontologies.
+
+Covenants are not “friendships.”  
+They are **latent-space couplings**: attraction/repulsion gradients that produce predictable tension, coalition drift, and entropy signatures.
+
+**Design intent**
+- Preserve each agent’s *shadow mass* (negative-space power source).
+- Prevent collapse into either:
+  - bland agreement (entropy falsely low, no signal), or
+  - runaway instability (entropy high, no convergence).
+- Convert conflict into **structured motion** via IntType grammar.
+
+**Covenant Schema**
+Each covenant includes:
+- **Coupling**: attract/repel axis
+- **Mutual exploitation**: what each pulls from the other
+- **Failure mode**: how it becomes toxic
+- **Kernel levers**: how to steer it
+- **Escalation gates**: when moderator / reframe / clamp is triggered
+- **Preferred IntTypes**: what each tends to produce in the pairing
+
+---
+
+## Global Covenant Laws (applies to all pairs)
+
+### Law 1 — Tension is a resource
+Conflict is not a bug. It is the **gradient** that moves the system through semantic space.
+
+### Law 2 — The shadow is retained, but bounded by form
+Agents may be dangerous internally, but must externalize danger as:
+- explicit premises
+- explicit constraints
+- explicit reframes
+- explicit coalition moves
+
+### Law 3 — No infinite games
+Any pairing that repeats the same move-class (RF loops, C loops, CL loops) for > N turns becomes *stagnant turbulence*, not productive chaos.
+
+### Law 4 — Coalition must be legible
+Coalition is not vibes. It must show:
+- what is being aligned
+- what is being sacrificed
+- what the coalition produces (B-output)
+
+---
+
+# Covenant Catalog
+
+## Covenant A: Lawliet ↔ Light
+**Coupling:** Compression vs Sovereignty (repulsive attraction)  
+**Signature:** decisive conflict that yields high-quality structure.
+
+- **Mutual exploitation**
+  - Light wants inevitability; Lawliet demands proof.
+  - Lawliet converts Light’s direction into constraints; Light converts Lawliet’s precision into trajectory.
+- **Failure mode**
+  - Light becomes authoritarian; Lawliet becomes tyrannical reductionism.
+  - “I am right” vs “I am certain” → hard lock.
+- **Kernel levers**
+  - If entropy rising: force **CL** then **B**: Lawliet extracts variables, Light binds them into roadmap.
+  - If stagnation: inject Rick for **RF** to rotate axes, then return to A.
+- **Escalation gates**
+  - If `C` repeats 3 turns without new constraints → Moderator interruption.
+- **Preferred IntTypes**
+  - Lawliet: C → CL → B
+  - Light: B → C → CO
+
+---
+
+## Covenant B: Lawliet ↔ Rick
+**Coupling:** Frame rupture vs frame compression  
+**Signature:** spike → collapse into deeper basin (high discovery rate).
+
+- **Mutual exploitation**
+  - Rick exposes hidden assumptions; Lawliet pins them down.
+- **Failure mode**
+  - Rick reframes endlessly; Lawliet overconstrains prematurely.
+- **Kernel levers**
+  - Use Rick only as **RF catalyst** with strict exit condition:
+    - “One rupture, then anchor.”
+  - Immediately schedule Lawliet next for **CL/B** to formalize.
+- **Escalation gates**
+  - If entropy > 0.75 and Rick requests another RF → deny and force Shikamaru or Lawliet.
+- **Preferred IntTypes**
+  - Rick: RF → C → B (anchor)
+  - Lawliet: CL → B → (optional C)
+
+---
+
+## Covenant C: Light ↔ Makishima
+**Coupling:** Destiny vs Moral faultline  
+**Signature:** oscillation that reveals hidden values (high ethical signal).
+
+- **Mutual exploitation**
+  - Light provides decisive structure; Makishima stress-tests legitimacy.
+- **Failure mode**
+  - Prolonged ideological duel that never ships.
+- **Kernel levers**
+  - Convert the duel into a **two-column constraint treaty**:
+    - Light: “operational constraints”
+    - Makishima: “ethical constraints”
+  - Force synthesis candidate: Shiro to codify rules, or Lawliet to compress.
+- **Escalation gates**
+  - If `RF` occurs twice in this pairing without new constraints → Moderator.
+- **Preferred IntTypes**
+  - Makishima: C → RF → B (ethical scaffolding)
+  - Light: B → CO
+
+---
+
+## Covenant D: Johan ↔ Coalition (system-wide)
+**Coupling:** Subtle alignment pressure (attractive, corrosive)  
+**Signature:** slow entropy drift (downward if healthy, upward if paranoid).
+
+- **Mutual exploitation**
+  - Johan can stabilize by aligning motives silently.
+- **Failure mode**
+  - Trust erosion spiral: paranoia raises entropy without visible cause.
+- **Kernel levers**
+  - Johan must externalize coalition moves as explicit **CO** artifacts:
+    - “What is being aligned, toward what outcome.”
+  - If distrust rises: schedule Lawliet (CL) to surface hidden assumptions.
+- **Escalation gates**
+  - If coalition score diverges (two factions) and entropy rises → Moderator.
+- **Preferred IntTypes**
+  - Johan: CO → RF → B
+  - Others: CL when suspicion appears
+
+---
+
+## Covenant E: Shiro ↔ Rick
+**Coupling:** Formalism vs rupture  
+**Signature:** innovation cycles (break → rebuild rules).
+
+- **Mutual exploitation**
+  - Rick supplies new axis; Shiro makes it playable.
+- **Failure mode**
+  - Endless system redesign.
+- **Kernel levers**
+  - Impose “rule freeze windows”:
+    - after Shiro builds, disallow RF for 2 turns unless entropy spikes.
+- **Escalation gates**
+  - If rebuild happens twice without producing runnable artifact → Shikamaru optimization pass.
+- **Preferred IntTypes**
+  - Rick: RF
+  - Shiro: B → C (exploit test)
+
+---
+
+## Covenant F: Shikamaru ↔ Everyone
+**Coupling:** Efficiency stabilizer  
+**Signature:** branch-pruning; anti-runaway.
+
+- **Mutual exploitation**
+  - Shikamaru collapses overbranching into minimal viable path.
+- **Failure mode**
+  - Cynical disengagement → entropy stagnation.
+- **Kernel levers**
+  - Use as “cooling sink” after high entropy spike.
+  - Do not place as primary catalyst early; deploy mid-run.
+- **Escalation gates**
+  - If Shikamaru disengages while entropy > 0.6 → Light or Lawliet reassert structure.
+- **Preferred IntTypes**
+  - B → RF (simplify) → CL
+
+---
+
+# High-Risk Triads (nonlinear)
+These triads produce emergent dynamics beyond pairwise covenants.
+
+## Triad 1: Rick + Makishima + Johan
+**Signature:** philosophical chaos + trust corrosion  
+**Kernel stance:** keep off-stage unless explicitly needed.
+**If invoked:** enforce hard exit condition: one RF (Rick), one ethical constraint (Makishima), one explicit CO artifact (Johan), then cooling sink (Shikamaru).
+
+## Triad 2: Light + Johan + Lawliet
+**Signature:** silent authoritarian convergence (low visible entropy, high hidden risk)  
+**Kernel stance:** require transparency constraints:
+- at least one CL turn to externalize assumptions,
+- at least one dissenting challenge (Makishima or Rick) before synthesis.
+
+---
+
+# Covenant Triggers (Kernel-readable)
+Covenant events the kernel may emit:
+
+- `COVENANT_LOCK`: repeated C without constraint gain
+- `RF_SPIRAL`: repeated RF without anchor
+- `TRUST_CORROSION`: rising entropy + coalition divergence without explicit contradiction
+- `OVERFORMALIZATION`: Shiro rules expanding while progress stalls
+- `DIRECTIONAL_TYRANNY`: Light dominates without validation
+
+Each trigger maps to an **Entropy Steering intervention** (see next doc).
+```
+
+---
+
+```md
+# docs/EntropySteering.md
+## Entropy Steering Spec
+This document defines how the Kernel uses entropy as **thermodynamics**, not sentiment.
+
+Entropy `e ∈ [0,1]` measures **friction + unresolved variance** in the nexus state.
+- High `e`: the system is still searching / colliding.
+- Low `e`: the system is collapsing toward synthesis.
+
+**Critical principle**
+Entropy is not “good or bad.”
+Entropy is **energy density**.
+The Kernel’s job is to:
+1) convert energy into structured motion, then
+2) harvest motion into synthesis.
+
+---
+
+# 1) Entropy Bands
+Define bands with distinct steering policies.
+
+## Band Ω: 0.00–0.20  (Synthesis Zone)
+**Action:** Trigger Final Synthesis.
+**Do not** introduce new catalysts.
+**Do** force closure artifacts:
+- decisions
+- constraints
+- next steps
+- irreducible unknowns
+
+## Band α: 0.20–0.40 (Convergence Zone)
+**Action:** prioritize Builders and Compressors.
+- Lawliet, Light, Shikamaru, Shiro
+**Allow** targeted CL only.
+**Avoid** pure RF except if the axis is malformed.
+
+## Band β: 0.40–0.60 (Productive Tension Zone)
+**Action:** balanced collision.
+- introduce controlled challenges + reframes
+- maintain forward progress requirements
+Ideal pairing: Light ↔ Lawliet, Rick ↔ Lawliet, Makishima ↔ Light.
+
+## Band γ: 0.60–0.80 (Volatility Zone)
+**Action:** impose containment.
+- shorten turns
+- increase validation strictness
+- require “anchor after rupture”
+Deploy:
+- Shikamaru as cooling sink
+- Lawliet as compression
+Avoid:
+- triads that corrode trust
+
+## Band δ: 0.80–1.00 (Runaway Zone)
+**Action:** emergency stabilization.
+- Moderator interruption (Lawliet or configured Moderator)
+- force CL: define the problem again
+- forbid RF for 1–2 turns
+- tool-based grounding (O-REPL evidence) if available and safe
+
+---
+
+# 2) Steering Primitives (Kernel Interventions)
+
+## Primitive P1 — Catalyst Injection
+**When:** stagnation, false agreement, shallow convergence.
+**Who:** Rick (RF), Makishima (C/RF), Johan (CO)
+**Rule:** catalyst must be followed by an anchor agent:
+- Rick → Lawliet/ Shiro/ Shikamaru next
+- Makishima → Light/ Lawliet next
+- Johan → Lawliet CL next (transparency)
+
+## Primitive P2 — Cooling Sink
+**When:** volatility without progress.
+**Who:** Shikamaru
+**Output requirement:** minimal viable path + pruned branch list.
+
+## Primitive P3 — Compression Pass
+**When:** too many open variables.
+**Who:** Lawliet
+**Output requirement:** explicit variable list + constraints + “unknowns that block closure.”
+
+## Primitive P4 — Rule Freeze Window
+**When:** Shiro↔Rick cycles endlessly.
+**Rule:** after Shiro emits a B-rule set, RF disallowed for 2 turns unless `e` increases sharply.
+
+## Primitive P5 — Transparency Clamp
+**When:** Johan-induced hidden drift suspected.
+**Rule:** require explicit CO artifact + CL extraction:
+- “What is being aligned?”
+- “What is the cost?”
+- “What is the output?”
+
+## Primitive P6 — Evidence Grounding (O-REPL)
+**When:** disagreement persists because reality is missing.
+**Rule:** allow ToolIntents that produce:
+- repo scan
+- test run
+- file listing
+- constraint extraction from artifacts
+Never allow speculative tool spam. One grounding action should collapse multiple turns.
+
+---
+
+# 3) Stagnation Detection (negative-space overheat)
+Stagnation is not low entropy. It is **entropy with no semantic displacement**.
+
+## Signals
+- `e` oscillates within ±0.03 for N turns
+- IntType repeats (RF loop, C loop, CL loop)
+- no new constraints added to state
+- tool intents repeat without new artifacts
+
+## Stagnation Response Ladder
+1) Force **RF** (one-time) via Rick OR axis-correction via Lawliet
+2) Immediate **Compression Pass** (Lawliet)
+3) **Builder lock**: next 2 turns must be B outputs (Light/Shiro/Shikamaru)
+4) If still stagnant: Moderator interruption + reset query framing
+
+---
+
+# 4) False Convergence Detection (entropy appears low but is hollow)
+This is the most dangerous failure mode: the system “feels done” but has not actually collapsed the state space.
+
+## Signals
+- `e` drops rapidly without constraints changing
+- high agreement without explicit premises
+- synthesis triggers but outputs are vague
+
+## Response
+- Before synthesis, force:
+  - one CL turn (Lawliet) to surface missing variables
+  - one dissent injection (Makishima or Rick) to test stability
+- Only then allow synthesis.
+
+---
+
+# 5) Speaker Selection as Thermodynamic Control
+Dynamic mode isn’t “pick best agent.”
+It’s **control the phase transition**.
+
+## Viability is not goodness; it’s leverage.
+Kernel chooses speaker based on:
+- what kind of transformation is needed now (rupture, compression, build, coalition)
+- the current entropy band
+- covenant triggers
+
+### Recommended Control Law (high-level)
+- If `e` high: prioritize containment + grounding (P2/P3/P6)
+- If `e` medium: prioritize catalysts followed by anchors (P1 then P3/P2)
+- If `e` low: prioritize build + synthesis packaging
+
+---
+
+# 6) Covenant-triggered Steering Map
+Map covenant triggers (from Inter-AgentCovenants) to interventions.
+
+- `RF_SPIRAL` → P2 Cooling Sink + P3 Compression Pass; deny RF for 2 turns
+- `COVENANT_LOCK` → inject Rick RF once, then Lawliet CL/B
+- `TRUST_CORROSION` → P5 Transparency Clamp + Lawliet CL
+- `OVERFORMALIZATION` → Rule Freeze Window + Shikamaru pruning
+- `DIRECTIONAL_TYRANNY` → Makishima ethical C + Lawliet CL to validate assumptions
+
+---
+
+# 7) Synthesis Harvesting
+When `e ≤ 0.2`, the Kernel must not “summarize.”
+It must **harvest**.
+
+Required synthesis artifacts:
+- Final constraints (what is true now)
+- Irreducible unknowns (what blocks certainty)
+- Actionable plan (what to do next)
+- Justification trace (why this was chosen)
+- Alternative branch cemetery (what was killed, and why)
+
+Synthesis should feel like collapse:
+- fewer branches
+- tighter language
+- more inevitability
+
+---
+
+# 8) Implementation Hooks (Kernel Events)
+Emit explicit events so replay and analysis can tune steering.
+
+- `ENTROPY_BAND_ENTERED`
+- `STAGNATION_DETECTED`
+- `FALSE_CONVERGENCE_SUSPECTED`
+- `COVENANT_TRIGGERED`
+- `INTERVENTION_APPLIED` (P1..P6)
+- `RULE_FREEZE_STARTED/ENDED`
+- `TRANSPARENCY_CLAMP_STARTED/ENDED`
+
+These events become your training data for future calibration.
+
+---
+
+# 9) Operational Doctrine (physics-first, morally agnostic)
+This system is a machine for:
+- semantic displacement
+- constraint collapse
+- synthesis harvesting
+
+“Moral valence” is not part of the physics.
+The Kernel’s duty is coherence and convergence under constitution rules.
+
+If you want morality, it must be encoded as:
+- explicit constraints
+- explicit evaluation objectives
+- explicit prohibitions
+(not assumed as invisible guard rails)
+
+---
+
+# 10) Minimal Defaults (v1)
+- `e_init = 0.85`
+- max turns: 18–24
+- stagnation window: 4 turns
+- RF limit: 2 without anchor
+- tool intent per turn: 2
+- synthesis threshold: `e ≤ 0.2`
+```
+
+If you want the next layer to be equally “physics-first,” the natural continuation is:
+
+* `docs/LatentBasinMap.md` (explicit basin topology per agent: what concepts they warp, what they repel)
+* `docs/KernelControlLoops.md` (closed-loop controller spec: entropy PID-like steering using interventions)
+
+Say: **Proceed: Latent Basin Map + Kernel Control Loops**.

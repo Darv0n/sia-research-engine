@@ -1,0 +1,383 @@
+```md
+# docs/ReactorInitializationDoctrine.md
+## Reactor Initialization Doctrine
+How to seed a run so that SIA ignites into sustained semantic fusion
+instead of flickering into noise or collapsing into trivial agreement.
+
+This doctrine governs the first 3–5 turns.
+Initialization determines curvature trajectory.
+
+You are not “starting a conversation.”
+You are igniting a controlled reaction.
+
+---
+
+# 0. Prime Directive
+
+Initialization must produce:
+
+- Non-zero tension
+- Non-trivial direction
+- Legible unknowns
+- Competing gradients
+
+If the first 3 turns do not introduce structural friction,
+the reactor will never reach productive burn.
+
+---
+
+# 1. Initial Conditions
+
+## 1.1 Entropy Seed
+
+Default:
+```
+
+e_init = 0.85
+
+```
+
+Why high?
+
+Because fusion requires pressure.
+
+Low initial entropy produces false convergence.
+High entropy creates gradient to exploit.
+
+---
+
+## 1.2 Query Framing
+
+The initial query must contain:
+
+- At least one ambiguous axis
+- At least one decision constraint
+- At least one unknown variable
+
+Bad seeds:
+- “Explain X”
+- “What is Y”
+
+Good seeds:
+- “Design X under constraint A but optimize for B while minimizing C”
+- “Resolve tension between A and B with explicit trade-offs”
+
+Initialization fails if:
+- no trade-off
+- no tension
+- no decision surface
+
+---
+
+# 2. First Speaker Selection Doctrine
+
+Never start with a cooling sink.
+
+Initialization speakers must create curvature.
+
+### Valid Ignition Patterns
+
+Pattern A:
+Rick (RF spike) → Lawliet (CL/B compression)
+
+Pattern B:
+Light (directional proposal) → Makishima (ethical fracture)
+
+Pattern C:
+Shiro (rule formalization seed) → Rick (stress test)
+
+Pattern D:
+Lawliet (variable extraction) → Light (strategic direction)
+
+---
+
+# 3. Ignition Quality Check (after turn 2)
+
+Kernel must evaluate:
+
+- Are axes visible?
+- Are constraints explicit?
+- Are trade-offs named?
+- Is there a disagreement surface?
+
+If not:
+Inject Catalyst (P1).
+
+---
+
+# 4. Avoid Cold Starts
+
+Cold Start Symptoms:
+
+- Early agreement
+- Vague enthusiasm
+- Generic exploration
+- No constraint accumulation
+
+Correction:
+Force C (Challenge) or RF (Reframe) immediately.
+
+---
+
+# 5. Controlled Burn Phase (Turns 3–6)
+
+Goal:
+Convert ignition energy into structured motion.
+
+Required outputs during this phase:
+
+- At least 3 explicit constraints
+- At least 1 rejected branch
+- At least 1 coalition alignment artifact
+
+If none present → stagnation likely.
+
+---
+
+# 6. Tool Grounding Strategy (Optional)
+
+Only during initialization if:
+
+- dispute is factual
+- environment constraints matter
+
+One early grounding action can anchor trajectory.
+
+Never open with tool execution unless the domain demands it.
+
+---
+
+# 7. Initialization Failure Modes
+
+## 7.1 Premature Compression
+Lawliet closes space before exploration.
+
+Fix:
+Inject Rick RF or Makishima C.
+
+## 7.2 Directional Tyranny
+Light imposes future before tension visible.
+
+Fix:
+Mandatory challenge.
+
+## 7.3 Philosophical Drift
+Makishima fractures without anchor.
+
+Fix:
+Force Light or Shiro B.
+
+---
+
+# 8. Ignition Success Indicators
+
+By turn 5, you should observe:
+
+- Entropy between 0.55–0.75
+- Explicit decision axes
+- Named unknowns
+- First viable structure forming
+
+If entropy < 0.4 before turn 5 → false convergence likely.
+
+---
+
+# 9. Doctrine Summary
+
+Ignite.
+Spike.
+Compress.
+Structure.
+Then steer.
+
+Do not begin with calm.
+Begin with curvature.
+```
+
+---
+
+```md
+# docs/SingularityPreventionSpec.md
+## Singularity Prevention Specification
+Prevent any one basin from collapsing the entire topology.
+
+A singularity occurs when:
+
+- One agent’s deformation dominates all axes.
+- Entropy drops artificially without multi-axis stabilization.
+- Coalition locks without dissent stress-testing.
+
+Singularity ≠ synthesis.
+Singularity = dominance without validation.
+
+---
+
+# 1. Singularity Types
+
+## 1.1 Constraint Singularity (Lawliet Overcompression)
+Symptoms:
+- Rapid A₁ increase
+- Dissent suppressed
+- No alternative branches recorded
+
+Countermeasure:
+Inject RF (Rick) or C (Makishima).
+Force at least one alternative branch articulation.
+
+---
+
+## 1.2 Directional Singularity (Light Dominance)
+Symptoms:
+- A₂ high
+- Coalition A₆ high
+- Ethical/structural validation absent
+
+Countermeasure:
+Mandatory CL (Lawliet) + C (Makishima).
+Force premise extraction.
+
+---
+
+## 1.3 Reframe Singularity (Rick Spiral)
+Symptoms:
+- RF repeated
+- Frame unstable
+- No constraint accumulation
+
+Countermeasure:
+Freeze RF.
+Compression pass.
+Cooling sink.
+
+---
+
+## 1.4 Ethical Drift Singularity (Makishima Overfracture)
+Symptoms:
+- A₃ dominates
+- No actionable structure
+- Prolonged ideological oscillation
+
+Countermeasure:
+Light B + Shiro rule codification.
+
+---
+
+## 1.5 Coalition Shadow Singularity (Johan Drift)
+Symptoms:
+- Agreement increasing
+- Entropy falling
+- No explicit premise mapping
+
+Countermeasure:
+Transparency clamp.
+Explicit CO artifact required.
+Forced CL.
+
+---
+
+# 2. Dominance Detection Metrics
+
+Kernel monitors:
+
+- Speaker frequency ratio
+- Axis deformation velocity
+- IntType diversity
+- Constraint growth vs challenge rate
+
+If any agent contributes > 50% of last N turns without entropy band shift → dominance risk.
+
+---
+
+# 3. Anti-Singularity Interventions
+
+## 3.1 Rotational Enforcement
+Force underrepresented basin to speak.
+
+## 3.2 Axis Counterbalance
+If A₁ high → introduce RF or C.
+If A₂ high → introduce ethical or structural check.
+If A₃ high → introduce builder.
+If A₄ high → freeze rules and test with rupture.
+
+---
+
+# 4. Hard Limits
+
+- No agent may speak more than 2 consecutive turns in Dynamic Mode without entropy justification.
+- RF cannot exceed 2 consecutive uses without anchor.
+- C must be followed by B or CL within 2 turns.
+- Synthesis denied if dissent not tested.
+
+---
+
+# 5. Multi-Axis Stability Requirement
+
+Synthesis allowed only if:
+
+- A₁ (constraints) stabilized
+- A₂ (direction) explicit
+- A₃ (values) acknowledged or intentionally excluded
+- A₄ (structure) formalized enough to act
+- A₆ (coalition) legible
+
+Missing axis → deny collapse.
+
+---
+
+# 6. Emergency Moderator Protocol
+
+If entropy > 0.9 or oscillates wildly:
+
+Moderator (Lawliet default) performs:
+
+- Full state extraction
+- Axis summary
+- Branch cemetery listing
+- Reset of active pool
+
+Then restart controlled burn.
+
+---
+
+# 7. The Paradox Rule
+
+A system without singularity risk has no power.
+A system with unchecked singularity collapses.
+
+Therefore:
+Allow near-singular states.
+Prevent terminal collapse.
+
+Operate at edge-of-singularity.
+
+---
+
+# 8. Final Principle
+
+SIA is a semantic reactor.
+
+Singularity is meltdown.
+Synthesis is controlled fusion.
+
+Do not eliminate gravity.
+Balance it.
+```
+
+---
+
+You now have:
+
+* Deep basin topology
+* Closed-loop control architecture
+* Ignition doctrine
+* Singularity safeguards
+* Covenant interference maps
+* Entropy steering framework
+
+This is no longer a simulation spec.
+
+It is a reactor manual.
+
+If you want the final apex layer:
+
+**Proceed: Multi-Reactor Swarm Architecture + Cross-Reactor Entropy Coupling.**

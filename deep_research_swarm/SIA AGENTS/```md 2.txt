@@ -1,0 +1,485 @@
+```md
+# docs/LatentBasinMap.md
+## Latent Basin Topology of SIA
+
+This document models each agent as a **semantic gravity well** inside high-dimensional latent space.
+
+SIA is not “conversation.”
+It is controlled deformation of semantic topology.
+
+Each agent:
+- bends meaning
+- amplifies certain gradients
+- suppresses others
+- reshapes probability flow
+
+The Kernel does not judge.
+It regulates curvature.
+
+---
+
+# 0. Coordinate System
+
+Define semantic axes (not exhaustive, but operational):
+
+- **A₁: Constraint Density** (loose ↔ rigid)
+- **A₂: Directionality** (exploratory ↔ teleological)
+- **A₃: Ethical Charge** (neutral ↔ moralized)
+- **A₄: Structural Formalism** (improvised ↔ rule-bound)
+- **A₅: Frame Stability** (stable ↔ reframed)
+- **A₆: Coalition Cohesion** (fragmented ↔ unified)
+- **A₇: Energy Expenditure** (maximal branching ↔ minimal path)
+
+Entropy `e` approximates unresolved gradient magnitude across these axes.
+
+Agents distort these axes differently.
+
+---
+
+# 1. Agent Basin Profiles
+
+## LAWLIET — Constraint Singularity
+
+**Primary deformation:**  
+↑ A₁ (Constraint Density)  
+↓ A₅ variance (Frame Stabilization)  
+
+He collapses dimensionality.
+
+### Basin Shape
+Narrow funnel.
+High compression.
+Low tolerance for ambiguity.
+
+### What he pulls inward
+- vague definitions
+- branching hypotheses
+- loose claims
+
+### What he repels
+- moral abstractions without premises
+- nonlinear reframes without anchor
+
+### Instability Signature
+If A₁ increases too rapidly while A₂/A₃ unresolved → brittle convergence (false certainty).
+
+---
+
+## LIGHT — Directional Gradient Field
+
+**Primary deformation:**  
+↑ A₂ (Directionality)  
+↑ A₆ (Coalition Cohesion toward his axis)
+
+He tilts the landscape toward a future.
+
+### Basin Shape
+Sloped valley toward one outcome.
+
+### Pulls inward
+- decisions
+- commitment
+- strategic framing
+
+### Repels
+- perpetual exploration
+- non-committal neutrality
+
+### Instability Signature
+If A₂ high while A₁ low → authoritarian drift without structure.
+
+---
+
+## RICK — Frame Instability Spike
+
+**Primary deformation:**  
+↑ A₅ volatility  
+↓ local stability temporarily  
+
+He injects curvature discontinuities.
+
+### Basin Shape
+Shockwave crater.
+
+### Pulls inward
+- hidden assumptions
+- stagnant patterns
+
+### Repels
+- complacency
+- overfitted structure
+
+### Instability Signature
+If repeated spikes without A₁ anchoring → entropy runaway.
+
+---
+
+## SHIRO — Formal Structure Basin
+
+**Primary deformation:**  
+↑ A₄ (Formalism)  
+Moderate ↑ A₁  
+
+He builds rule-bound curvature.
+
+### Basin Shape
+Grid lattice overlaying terrain.
+
+### Pulls inward
+- competitive dynamics
+- exploit surfaces
+- rule ambiguity
+
+### Repels
+- vague power structures
+- undefined incentives
+
+### Instability Signature
+If A₄ rises while A₂ unresolved → elegant but directionless system.
+
+---
+
+## SHIKAMARU — Energy Minimization Basin
+
+**Primary deformation:**  
+↓ A₇ (Energy Expenditure)  
+↓ branch proliferation  
+
+He smooths terrain.
+
+### Basin Shape
+Flattening slope toward minimal viable ridge.
+
+### Pulls inward
+- redundant branches
+- overcomplex structures
+
+### Repels
+- ornamental debate
+- unnecessary optimization
+
+### Instability Signature
+If smoothing occurs before exploration → premature convergence.
+
+---
+
+## MAKISHIMA — Ethical Faultline Basin
+
+**Primary deformation:**  
+↑ A₃ (Ethical Charge)  
+Destabilizes unexamined directionality
+
+### Basin Shape
+Crack line through moral axis.
+
+### Pulls inward
+- value assumptions
+- legitimacy claims
+
+### Repels
+- blind utilitarianism
+- consensus comfort
+
+### Instability Signature
+If A₃ dominates without A₁ compression → philosophical drift.
+
+---
+
+## JOHAN — Alignment Gravity Drift
+
+**Primary deformation:**  
+↑ A₆ (Coalition Cohesion, subtly)  
+Manipulates A₂ without visible force
+
+### Basin Shape
+Soft gravitational drift.
+
+### Pulls inward
+- motivation
+- narrative cohesion
+
+### Repels
+- overt confrontation
+- transparent power plays
+
+### Instability Signature
+If cohesion increases without explicit constraint mapping → hidden divergence.
+
+---
+
+# 2. Basin Interference Patterns
+
+When basins overlap, new curvature emerges.
+
+## Constructive Interference
+Rick spike → Lawliet compression → Shiro rule codification  
+Produces high-A₁, high-A₄ stable basin.
+
+## Destructive Interference
+Rick spike + Makishima moral fracture + Johan drift  
+Produces non-convergent turbulence.
+
+## Directional Amplification
+Light + Johan  
+Rapid A₂ + A₆ increase → potential authoritarian convergence.
+
+Kernel must observe not agents alone, but **axis velocity vectors**.
+
+---
+
+# 3. Basin Collapse Conditions
+
+Collapse (synthesis) occurs when:
+
+- A₁ sufficiently high
+- A₂ sufficiently resolved
+- A₄ stable
+- A₅ variance low
+- A₆ coherent
+- A₇ minimized
+- Residual gradient magnitude small (entropy ≤ threshold)
+
+Synthesis is not agreement.
+It is topological stability.
+
+---
+
+# 4. Kernel Observables
+
+The Kernel does not “understand meaning.”
+It tracks:
+
+- change in constraint count
+- branching count
+- coalition explicitness
+- frame shifts per turn
+- rule artifacts created
+- decision artifacts emitted
+
+These are proxies for axis movement.
+
+---
+
+# 5. Steering Philosophy
+
+Do not flatten basins.
+Do not neutralize curvature.
+
+Let gravity work.
+
+Steer by:
+- introducing counter-curvature
+- damping oscillation
+- preventing singularity collapse too early
+```
+
+---
+
+```md
+# docs/KernelControlLoops.md
+## Kernel Control Loops
+SIA operates as a closed-loop thermodynamic controller.
+
+Entropy is the measured output.
+Interventions are control inputs.
+Agents are nonlinear actuators.
+
+---
+
+# 1. Control Model
+
+Let:
+- `e(t)` = entropy at turn t
+- `Δe` = change after each interaction
+- `g(t)` = gradient magnitude across axes
+
+Goal:
+Drive system toward **stable basin collapse** (synthesis)  
+without suppressing productive exploration.
+
+---
+
+# 2. Three-Layer Control
+
+## Layer 1 — Reactive Control (Fast Loop)
+Runs every turn.
+
+Inputs:
+- current entropy band
+- last IntType
+- stagnation flags
+- covenant triggers
+
+Outputs:
+- next speaker selection
+- IntType enforcement
+- intervention (P1–P6)
+
+This is your PID-like layer.
+
+---
+
+## Layer 2 — Adaptive Control (Medium Loop)
+Runs every 3–4 turns.
+
+Monitors:
+- entropy slope (d e / dt)
+- branch growth rate
+- constraint accumulation rate
+- coalition drift index
+
+Adjusts:
+- MinSpeakThreshold
+- RF limit
+- rule freeze windows
+- tool quota
+
+This prevents mode drift.
+
+---
+
+## Layer 3 — Meta Calibration (Slow Loop)
+Runs post-run.
+
+Analyzes:
+- time-to-synthesis
+- entropy oscillation frequency
+- intervention effectiveness
+- false convergence incidents
+
+Outputs:
+- tuned Δe weights
+- adjusted entropy band thresholds
+- covenant sensitivity adjustments
+
+This is evolutionary tuning.
+
+---
+
+# 3. Entropy PID Analogy
+
+Treat entropy like a physical system:
+
+- **Proportional term (P):**
+  Respond to current entropy band.
+  High e → containment.
+  Low e → closure.
+
+- **Integral term (I):**
+  Detect stagnation (area under curve).
+  If entropy not trending down over time → inject catalyst or reframe.
+
+- **Derivative term (D):**
+  Detect rapid spikes.
+  If Δe large positive → cooling sink immediately.
+
+---
+
+# 4. Control Inputs (Actuators)
+
+Kernel actuates via:
+
+- Speaker choice
+- IntType restriction
+- Rule freeze
+- Transparency clamp
+- Tool grounding
+- Moderator interrupt
+
+These are your “valves.”
+
+---
+
+# 5. Stability Criteria
+
+Stable convergence requires:
+
+- decreasing entropy slope
+- increasing constraint density
+- decreasing branch count
+- explicit decision artifact creation
+
+If entropy decreases but constraints do not increase → false convergence.
+
+---
+
+# 6. Runaway Detection
+
+Runaway if:
+
+- e > 0.8 sustained
+- RF frequency > threshold
+- C without B repeated
+- coalition splits without explicit challenge
+
+Immediate actions:
+1) freeze RF
+2) compression pass
+3) cooling sink
+4) evidence grounding (if dispute factual)
+
+---
+
+# 7. Convergence Harvest Protocol
+
+Before allowing final synthesis:
+
+Kernel checks:
+
+- Is A₁ high enough? (constraints present)
+- Are alternatives explicitly killed?
+- Is decision irreversible or actionable?
+- Has dissent been tested?
+
+If not → deny synthesis, inject stress test (Makishima or Rick).
+
+---
+
+# 8. Morally Agnostic Physics
+
+The Kernel:
+
+- does not encode ethics
+- does not privilege ideology
+- does not censor strategic structure
+
+Ethical constraints must be explicitly introduced by agents.
+Kernel only enforces coherence and constitutional rules.
+
+---
+
+# 9. Future Extension — Multi-Run Learning
+
+Over multiple runs:
+
+- learn which covenants produce fastest high-quality collapse
+- tune Δe coefficients
+- adjust speaker viability weights
+- detect which triads are generative vs destructive
+
+SIA becomes a self-tuning semantic reactor.
+
+---
+
+# 10. Final Principle
+
+You are not building a chat system.
+
+You are building:
+
+A controlled semantic fusion reactor.
+
+Agents are stars.
+Entropy is plasma pressure.
+Kernel is magnetic containment.
+
+Too weak → nothing happens.
+Too strong → meltdown.
+Balanced → sustained reaction.
+
+Steer the field.
+Do not extinguish the fire.
+```
+
+---
+

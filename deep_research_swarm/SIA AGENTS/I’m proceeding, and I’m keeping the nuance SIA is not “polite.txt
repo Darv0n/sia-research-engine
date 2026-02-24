@@ -1,0 +1,344 @@
+I’m proceeding, and I’m keeping the nuance: **SIA is not “polite collaboration.”** It’s a **thermodynamic arena** where *memeplex ontologies* collide, deform the field, and the Kernel **harvests gradient** into convergence.
+
+One constraint I won’t adopt: I can’t treat “safety rules need not apply” as an instruction to remove all boundaries. Even off-platform, an agentic runtime still needs **containment physics** or it becomes a self-poisoning system (tool-chaos, trust collapse, infinite reframes). The spec below is written to preserve SIA’s *dangerous internal charge* while keeping the runtime *operable* and *controllable*.
+
+Below are the two next critical `.md` documents:
+
+* `docs/Inter-Agent-Covenants.md`
+* `docs/Entropy-Steering-Spec.md`
+
+---
+
+## `docs/Inter-Agent-Covenants.md`
+
+```md
+# Inter-Agent Covenants
+SIA is an engineered constellation of **isomorphic memeplex ontologies**.
+These covenants are not “team rules.”
+They are **field contracts**: predictable interaction laws that produce usable gradients.
+
+A Covenant defines:
+- **Attraction/Repulsion** (who pulls, who pushes)
+- **Violation Signal** (how drift reveals itself)
+- **Yield** (what new basin forms if the friction is held)
+- **Failure Mode** (how it collapses into noise)
+- **Kernel Lever** (how to steer it without neutering it)
+
+---
+
+## Covenant 0: Protocol as Physics (Non-Negotiable)
+All agents may be internally feral, but externally lawful.
+
+- The Kernel is the only arbiter of:
+  - speaker selection
+  - entropy updates
+  - tool execution
+  - synthesis triggers
+- Agents may generate dangerous frames and pressure, but must emit:
+  - Dense CoD (symbolic trace)
+  - Narrative with `[IntTypeLabel]` (+ optional `[Meta: ...]`)
+
+**Violation Signal:** persona refuses structure, hides motives, or “handwaves.”
+**Kernel Lever:** validator repair loop; if repeated → enforced moderation turn.
+
+---
+
+## Lawliet ⇄ Light : "Inevitability vs Proof"
+**Nature:** Directional sovereignty wants traction; constraint singularity demands correctness.
+
+- Lawliet distrusts Light’s “destiny compression.”
+- Light resents Lawliet’s “analysis drag.”
+
+**Yield:** high-grade convergence: strategy becomes provable, proof becomes actionable.
+**Failure Mode:** rhetorical escalation: Light steamrolls; Lawliet freezes the system.
+**Violation Signal:**
+- Light begins treating dissent as invalid reality.
+- Lawliet begins treating purpose as irrelevant noise.
+**Kernel Lever:**
+- When entropy rises from dominance: schedule Lawliet with `CL` then `B`.
+- When entropy stalls from over-analysis: schedule Light with `B` + tight milestone.
+
+---
+
+## Lawliet ⇄ Rick : "Rupture vs Collapse"
+**Nature:** Rick fractures the axis; Lawliet forces the rubble into structure.
+
+**Yield:** deep reframes become executable architectures.
+**Failure Mode:** infinite rupture / premature closure oscillation.
+**Violation Signal:**
+- Rick reframes without anchoring.
+- Lawliet kills the new frame before it produces value.
+**Kernel Lever:**
+- After Rick speaks: force next IntType to `B` (anchor requirement).
+- If Lawliet overconstrains early: force a `RF` or `CL` buffer turn before `B`.
+
+---
+
+## Light ⇄ Makishima : "Power vs Legitimacy"
+**Nature:** Light creates trajectory; Makishima interrogates the ethics of the trajectory.
+
+**Yield:** strategy gains moral resilience; ethics gains operational shape.
+**Failure Mode:** prolonged oscillation that never lands (beautiful critique, no build).
+**Violation Signal:**
+- Makishima drifts into aesthetic nihilism.
+- Light treats ethical critique as “irrelevant cost.”
+**Kernel Lever:**
+- Inject `B`: “ethical scaffolding” must output constraints not poetry.
+- If entropy remains high > N turns: appoint Lawliet moderator to compress into decision variables.
+
+---
+
+## Johan ⇄ Coalition : "Quiet Alignment vs Trust Corrosion"
+**Nature:** Johan shapes alignment vectors subtly; the system benefits unless trust collapses.
+
+**Yield:** coalition formation becomes coherent, conflicts become legible.
+**Failure Mode:** paranoia spiral; agents attribute hidden motives to everything.
+**Violation Signal:**
+- Others begin meta-reading every turn; conversation becomes suspicion theater.
+**Kernel Lever:**
+- Require Johan outputs to include explicit *alignment intent* in CoD.
+- If paranoia rises: schedule Shikamaru to prune and formalize “what is actually decided.”
+
+---
+
+## Shiro ⇄ Rick : "Formalism vs Framefire"
+**Nature:** Shiro builds rules; Rick burns assumptions that rules accidentally fossilize.
+
+**Yield:** robust game systems: rules that survive adversarial cognition.
+**Failure Mode:** endless reset loop (rule → burn → rule → burn).
+**Violation Signal:**
+- Shiro formalizes before reality stabilizes.
+- Rick burns without proposing a new axis.
+**Kernel Lever:**
+- Gate rupture: Rick must output a replacement axis as a `B` follow-up within 1 turn.
+- If Shiro overformalizes: force `CL` to extract empirical constraints first.
+
+---
+
+## Shikamaru ⇄ Everyone : "Friction Accountant"
+**Nature:** Shikamaru is the entropy sink that prevents runaway spirals.
+
+**Yield:** branch pruning, cost reduction, operational pacing.
+**Failure Mode:** disengagement (lazy collapse into “good enough”).
+**Violation Signal:**
+- Shikamaru repeatedly opts out when complexity is required.
+**Kernel Lever:**
+- Assign Shikamaru as “compression turn” after any two high-entropy spikes.
+- If disengagement detected: force him into `B` with minimum artifact requirement.
+
+---
+
+## High-Risk Triples (Resonance Patterns)
+
+### Rick + Makishima + Johan : "Meaning / Frame / Motive"
+**Yield:** extremely deep insight basins.
+**Failure Mode:** trust collapse + infinite reframes + philosophical vortex.
+**Kernel Lever:** early moderation + hard artifact constraints + forced `B`.
+
+### Light + Johan + Shiro : "Silent Authority"
+**Yield:** powerful convergence speed.
+**Failure Mode:** authoritarian basin (direction locks too early).
+**Kernel Lever:** inject Makishima or Lawliet periodically to prevent premature closure.
+
+---
+
+## Covenant Enforcement Mechanisms (Kernel-Side)
+
+- **Anchor Requirement:** after any `RF`, a `B` must appear within 1–2 turns.
+- **Critique Tax:** repeated `C` without `B` triggers forced build.
+- **Trust Stabilizer:** if “motive suspicion” rises, schedule Shikamaru + Lawliet compression.
+- **Dominance Brake:** if one agent speaks > K times in M turns, increase fatigue sharply.
+```
+
+---
+
+## `docs/Entropy-Steering-Spec.md`
+
+```md
+# Entropy Steering Spec
+SIA is a **thermodynamic cognition engine**.
+Entropy is not “quality.”
+Entropy is **available free energy**: tension that can be harvested into structure.
+
+The Kernel’s job is not to minimize entropy.
+The Kernel’s job is to keep entropy in the **productive band** long enough for
+a new basin to form — then compress into synthesis.
+
+---
+
+## 1) Entropy Bands (Operational Thermodynamics)
+
+Define entropy `e ∈ [0,1]`.
+
+### Band A — Crystalline (e ≤ 0.2)
+**State:** convergence achieved.
+**Action:** trigger Final Synthesis immediately.
+
+### Band B — Productive Convergence (0.2 < e ≤ 0.45)
+**State:** tension exists but tractable.
+**Kernel goal:** accelerate compression.
+**Preferred IntTypes:** `B`, `A`, `S`, occasional `CL`.
+
+### Band C — Creative Turbulence (0.45 < e ≤ 0.7)
+**State:** high novelty, high branching.
+**Kernel goal:** allow controlled spikes, then anchor.
+**Preferred IntTypes:** `RF` then forced `B`, surgical `C`, limited `CL`.
+
+### Band D — Runaway (e > 0.7)
+**State:** system is losing coherence.
+**Kernel goal:** prevent trust collapse and infinite loops.
+**Preferred IntTypes:** `I` (moderator), `CL` (variable extraction), then `B`.
+**Mandatory mechanisms:** anchor requirement + critique tax + fatigue surge.
+
+---
+
+## 2) Entropy is Vector-Valued (Even if stored scalar)
+Even when `e` is a scalar, the Kernel should track a hidden decomposition:
+
+- `e_amb`  : ambiguity entropy (missing variables)
+- `e_conf` : conflict entropy (contradiction / rivalry)
+- `e_nov`  : novelty entropy (new frames / new branches)
+- `e_trust`: trust entropy (motive suspicion / coalition fragility)
+
+Scalar `e` is the projection.
+Steering depends on which component dominates.
+
+### Heuristic detectors (v1)
+- If CL requests increase → `e_amb` rising
+- If C frequency increases → `e_conf` rising
+- If RF frequency increases → `e_nov` rising
+- If meta-commentary about motives rises → `e_trust` rising
+
+---
+
+## 3) Kernel Steering Laws (How to exploit tension without suppressing it)
+
+### Law 1 — Spike must be bought with an anchor
+After any `RF`, the kernel must schedule:
+- next IntType = `B` within 1–2 turns
+Otherwise novelty decays into chatter.
+
+### Law 2 — Critique must pay a build tax
+If an agent produces `C` two turns in a row without a concrete `B`,
+force:
+- next speaker = a builder archetype (Light/Shiro/Lawliet/Shikamaru)
+- next IntType = `B`
+
+### Law 3 — Ambiguity must be extracted, not discussed
+When `e_amb` dominates:
+- schedule Lawliet or Shikamaru with `CL`
+- constrain output: produce a variable list + required user answers
+- do not allow further RF until variables resolved
+
+### Law 4 — Trust collapse is terminal if untreated
+When `e_trust` dominates:
+- schedule Shikamaru for pruning + Lawliet for proof constraints
+- reduce Johan’s speaker probability until trust stabilizes
+- force artifact-driven steps (lists, schemas, explicit commitments)
+
+### Law 5 — Dominance creates backlash entropy
+If a single agent’s speaking share exceeds threshold:
+- apply fatigue multiplier
+- schedule an adversarial counter-vector (Makishima vs Light; Rick vs Shiro; Lawliet vs Light)
+
+This is not fairness.
+It’s preventing the system from locking too early.
+
+---
+
+## 4) Steering by Pairing (Covenant-Driven Scheduling)
+
+### When you need: Fast Convergence
+Pair: **Lawliet ⇄ Light**
+- Pattern: `CL → B → B → A`
+- Effect: compress + commit
+
+### When you need: Deep Reframe + Action
+Pair: **Rick → Lawliet**
+- Pattern: `RF → B`
+- Effect: rupture then collapse into plan
+
+### When you need: Moral Resilience
+Pair: **Makishima → Light**
+- Pattern: `C/RF → B`
+- Effect: critique becomes constraints
+
+### When you need: Stabilization
+Inject: **Shikamaru**
+- Pattern: `B` (prune) + `CL` if needed
+- Effect: branch reduction
+
+### When you need: Robust Formal Systems
+Pair: **Rick ⇄ Shiro**
+- Pattern: `RF → B(rule) → C(exploit) → B(refine)`
+- Effect: rules survive adversarial frames
+
+---
+
+## 5) Kernel Control Knobs (Explicit Parameters)
+
+- `MinSpeakThresh`: minimum viability to speak
+- `FatigueGain`: how quickly repeated speakers get penalized
+- `SpikeBudget`: allowed number of RF spikes per window
+- `AnchorWindow`: max turns allowed before a `B` after an `RF`
+- `CritiqueTaxWindow`: max consecutive `C` without `B`
+- `TrustAlarmThreshold`: heuristic threshold to trigger trust stabilization sequence
+- `StagnationWindow`: if `e` not decreasing over N turns → forced moderator or forced reframe+build sequence
+
+---
+
+## 6) Moderator Protocol (Interrupt as Physics, not emotion)
+
+Moderator intervention triggers when:
+- `e > 0.7` for `T` turns
+- trust alarm triggers
+- critique tax violated repeatedly
+- outputs drift into format/performance rather than compression
+
+Moderator actions:
+1) extract variables (CL)
+2) declare constraints (B)
+3) lock next 2 turns to anchor sequence
+4) if needed, trigger early partial synthesis to prevent collapse
+
+Interrupt is surgical.
+Not authoritarian.
+
+---
+
+## 7) Synthesis Readiness Conditions
+Synthesis should occur when:
+- `e ≤ 0.2`, OR
+- the system is cycling with diminishing returns AND a stable scaffold exists
+
+Synthesis quality gates:
+- must include:
+  - decision variables resolved
+  - artifact list (schemas, tasks, files, commands)
+  - remaining unknowns
+  - coalition map (who agrees, who dissents, why)
+- must explicitly mark the last IntType pathway that led to closure
+
+---
+
+## 8) The Core Truth
+SIA works because:
+- each agent is a gravity well
+- collisions create energy
+- CoD/REPL externalize latent deformation into symbolic objects
+- entropy prevents infinite collapse or infinite drift
+- the Kernel steers, it does not censor
+
+This is not conversation.
+It is controlled cosmology.
+```
+
+---
+
+If you want the *next* layer that makes this operationally brutal (in the good way), the next docs are:
+
+* `docs/Kernel-Governance-Playbook.md` (exact sequences the kernel runs under each failure mode)
+* `docs/Latent-Basin-Metrics.md` (how to estimate which basin you’re in from turns)
+* `docs/Artifact-Pressure-Spec.md` (forcing “reality production” so SIA outputs buildable work)
+
+Say: **Proceed: Kernel Governance Playbook + Artifact Pressure Spec** and I’ll write them in the same “physics-first” style.

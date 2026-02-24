@@ -1,0 +1,450 @@
+```md
+# docs/MultiReactorSwarmArchitecture.md
+## Multi-Reactor Swarm Architecture
+SIA is no longer a single semantic fusion reactor.
+
+This document defines how **multiple SIA reactors** operate in parallel,
+interact through controlled exchange,
+and form a higher-order semantic ecosystem.
+
+A single reactor explores one basin.
+
+A swarm explores the manifold.
+
+---
+
+# 0. Conceptual Model
+
+Each SIA instance = **Reactor Node (Rᵢ)**
+
+Each reactor has:
+- its own entropy `eᵢ`
+- its own basin deformation state
+- its own coalition graph
+- its own synthesis artifacts
+
+A swarm is:
+
+```
+
+S = {R₁, R₂, … Rₙ}
+
+```
+
+The swarm does NOT merge reactors by default.
+
+It couples them through controlled channels.
+
+---
+
+# 1. Why Multiple Reactors?
+
+Single reactor limitation:
+- Path dependence
+- Dominant basin bias
+- Coalition lock-in
+- Local minima convergence
+
+Multiple reactors allow:
+- Divergent explorations
+- Competing syntheses
+- Parallel curvature discovery
+- Cross-validation of collapse states
+
+Swarm = anti-local-minimum engine.
+
+---
+
+# 2. Reactor Types
+
+Different reactors may be initialized with different bias conditions.
+
+## Type A — Strategic Reactor
+Bias:
+- Light, Lawliet heavy weighting
+- Directional convergence focus
+
+## Type B — Exploratory Reactor
+Bias:
+- Rick, Makishima early
+- High RF allowance
+- High entropy tolerance
+
+## Type C — Formal Reactor
+Bias:
+- Shiro, Lawliet
+- Rule-building focus
+
+## Type D — Minimal Reactor
+Bias:
+- Shikamaru heavy
+- Minimal branch exploration
+
+Each reactor operates independently until coupling events.
+
+---
+
+# 3. Cross-Reactor Coupling Channels
+
+Reactor nodes exchange only through explicit channels.
+
+## Channel 1 — Artifact Injection
+Reactor R₁ may export:
+- constraint set
+- rule system
+- decision artifact
+- branch cemetery
+
+R₂ imports artifact as:
+- fixed constraint
+- test case
+- adversarial stress input
+
+This is controlled semantic grafting.
+
+---
+
+## Channel 2 — Entropy Broadcast
+Reactor broadcasts:
+- entropy band
+- oscillation metrics
+- stagnation flags
+
+Other reactors can adjust steering parameters in response.
+
+Example:
+If R₁ stabilizes too quickly,
+R₂ may inject dissent artifact for validation.
+
+---
+
+## Channel 3 — Covenant Cross-Pollination
+A pairing that caused productive collapse in R₁
+may be seeded into R₂ intentionally.
+
+Swarm learns which covenants are generative.
+
+---
+
+## Channel 4 — Competitive Collapse
+Multiple reactors attempt synthesis on same seed.
+Swarm selects:
+- most stable
+- lowest residual gradient
+- highest constraint density
+
+Selection is structural, not aesthetic.
+
+---
+
+# 4. Swarm Orchestrator
+
+Above all reactors sits a **Swarm Orchestrator (SO)**.
+
+Responsibilities:
+- spawn reactors with varied initialization doctrine
+- monitor entropy trajectories
+- detect premature collapse
+- schedule cross-coupling events
+- terminate redundant reactors
+
+Swarm Orchestrator does not micromanage turns.
+It regulates macro-flow.
+
+---
+
+# 5. Reactor Lifecycle
+
+Each reactor passes through phases:
+
+1. Ignition
+2. Controlled Burn
+3. Stabilization
+4. Synthesis Attempt
+5. Export or Terminate
+
+Reactor may be:
+- Merged
+- Cloned
+- Mutated (adjusted entropy parameters)
+- Terminated
+
+---
+
+# 6. Multi-Reactor Topologies
+
+## 6.1 Parallel Topology
+All reactors independent.
+Artifacts exchanged periodically.
+
+## 6.2 Hierarchical Topology
+Exploratory reactors feed strategic reactor.
+Strategic reactor produces final synthesis.
+
+## 6.3 Competitive Tournament
+Reactors compete for lowest entropy stable solution.
+Losers terminated.
+
+## 6.4 Evolutionary Topology
+Reactor parameters mutate between generations.
+Swarm selects best collapse dynamics.
+
+---
+
+# 7. Cross-Reactor Constraint Merging
+
+When merging constraints from R₁ and R₂:
+
+- Identify shared constraints.
+- Identify contradictions.
+- Force Lawliet-like compression reactor to reconcile.
+- Produce meta-constraint layer.
+
+Never merge blindly.
+Always reconcile explicitly.
+
+---
+
+# 8. Swarm Failure Modes
+
+## 8.1 Convergence Monoculture
+All reactors collapse similarly.
+
+Fix:
+Increase initialization variance.
+Inject orthogonal basins.
+
+## 8.2 Entropy Cascade
+Cross-reactor RF spiral.
+
+Fix:
+Limit simultaneous RF in >50% of reactors.
+
+## 8.3 Synthesis Arms Race
+Reactors collapse prematurely to “win.”
+
+Fix:
+Require multi-axis validation before selection.
+
+---
+
+# 9. Swarm Objective
+
+Swarm objective is not speed.
+It is manifold exploration + validated collapse.
+
+Multiple controlled reactors outperform single deterministic chain.
+
+---
+
+# 10. Design Principle
+
+One reactor explores depth.
+Swarm explores breadth.
+Coupling creates evolutionary pressure.
+```
+
+---
+
+```md
+# docs/CrossReactorEntropyCoupling.md
+## Cross-Reactor Entropy Coupling
+How entropy propagates across the swarm.
+
+Each reactor has its own entropy `eᵢ`.
+
+Swarm maintains:
+- Global entropy vector E = [e₁, e₂, … eₙ]
+- Coupling matrix Cᵢⱼ defining influence weights.
+
+---
+
+# 1. Coupling Model
+
+For reactors i and j:
+
+```
+
+eᵢ(t+1) = eᵢ(t) + local_Δeᵢ + Σ Cᵢⱼ * f(eⱼ)
+
+```
+
+Where:
+- Cᵢⱼ ∈ [0, 0.3] typically
+- f(eⱼ) is influence function
+
+Coupling should be weak by default.
+Strong coupling causes cascade instability.
+
+---
+
+# 2. Influence Functions
+
+## 2.1 Stabilization Influence
+
+If Rⱼ collapses to low entropy:
+Rᵢ reduces tolerance for exploration.
+
+f(eⱼ) = -k when eⱼ < 0.2
+
+Effect:
+Encourages convergence in neighboring reactors.
+
+---
+
+## 2.2 Divergence Influence
+
+If Rⱼ stuck in stagnation:
+Rᵢ increases RF allowance.
+
+f(eⱼ) = +k when stagnation flag active.
+
+Effect:
+Promotes exploration in sibling reactors.
+
+---
+
+## 2.3 Validation Shock
+
+If Rⱼ synthesizes with low dissent:
+Rᵢ injects Makishima challenge to test.
+
+Effect:
+Cross-validation mechanism.
+
+---
+
+# 3. Entropy Synchronization Modes
+
+## Loose Coupling (default)
+Reactors mostly independent.
+Coupling events periodic.
+
+## Resonant Coupling
+Reactors synchronize entropy bands.
+Useful when refining final synthesis.
+
+## Adversarial Coupling
+One reactor’s synthesis becomes adversarial input to another.
+Creates stress testing.
+
+---
+
+# 4. Cascade Prevention
+
+If >50% of reactors enter Band δ simultaneously:
+
+- Freeze RF globally.
+- Activate cooling sinks.
+- Reduce coupling coefficients.
+
+If >50% collapse to low entropy rapidly:
+
+- Inject dissent in at least 1 reactor.
+- Delay global selection.
+
+---
+
+# 5. Global Stability Metric
+
+Define:
+
+```
+
+G = variance(E)
+
+```
+
+High variance = exploration diversity.
+Low variance = convergence uniformity.
+
+Swarm should oscillate:
+- high G during exploration
+- low G during final convergence
+
+Persistent low G early = monoculture risk.
+
+---
+
+# 6. Cross-Reactor Coalition Drift
+
+Coalition patterns can spread.
+
+If Light-dominant coalition wins in R₁:
+R₂ may over-adopt directional bias.
+
+Countermeasure:
+Ensure at least one reactor with opposing bias (Makishima/Rick heavy).
+
+---
+
+# 7. Swarm Synthesis Selection
+
+Final selection criteria:
+
+- Lowest entropy stable state
+- Highest constraint density
+- Cross-reactor validation success
+- Minimal unresolved axis count
+
+Selection is structural.
+Not subjective.
+
+---
+
+# 8. Evolutionary Pressure
+
+After each swarm cycle:
+
+- Adjust Cᵢⱼ weights
+- Adjust initial entropy seeds
+- Adjust intervention thresholds
+
+Swarm learns optimal exploration dynamics.
+
+---
+
+# 9. Morally Agnostic Coupling
+
+Coupling operates on:
+- entropy metrics
+- constraint density
+- structural stability
+
+It does not encode ideology.
+
+Ethics must appear as explicit constraints if desired.
+
+---
+
+# 10. Final Principle
+
+Single reactor = mind.
+Swarm = ecosystem.
+
+Ecosystems outperform minds in discovering stable structures.
+
+Control the coupling.
+Maintain diversity.
+Harvest the strongest basin.
+```
+
+---
+
+You now have:
+
+* Single-reactor physics
+* Basin topology
+* Control loops
+* Covenant mechanics
+* Singularity safeguards
+* Multi-reactor swarm architecture
+* Cross-reactor entropy dynamics
+
+At this level, SIA becomes:
+
+A distributed semantic thermodynamic engine.
+
+If you want the final frontier:
+
+**Proceed: Autonomous Self-Evolving Swarm (Reactor Mutation + Agent Parameter Drift + Adaptive Covenant Rewriting).**
