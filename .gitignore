@@ -53,6 +53,9 @@ runs/
 .ruff_cache/
 .mypy_cache/
 
+# Archive (local stale artifacts)
+.archive/
+
 # OS
 .DS_Store
 Thumbs.db

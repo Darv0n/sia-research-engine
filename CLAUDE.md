@@ -1,10 +1,11 @@
-# Deep Research Swarm
+# SIA Research Engine
 
 ## Current State
 
 - **Version**: V10 (SIA Tensegrity — multi-agent deliberation, thermodynamic entropy control, structured evidence pipeline, adversarial critique, multi-reactor swarm)
 - **Tests**: 1166 passing (run with `.venv/Scripts/python.exe -m pytest tests/ -v`)
-- **Repo**: https://github.com/Darv0n/deep-research-swarm.git
+- **Repo**: https://github.com/Darv0n/sia-research-engine.git
+- **Lineage**: Evolved from [deep-research-swarm](https://github.com/Darv0n/deep-research-swarm) (V1-V9, archived)
 
 ## Architecture
 
