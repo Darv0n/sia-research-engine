@@ -172,6 +172,51 @@ def verify_grounding(
     return (score >= threshold, round(score, 4), method)
 
 
+def second_pass_grounding(
+    claim: str,
+    borderline_passage: SourcePassage,
+    accepted_passages: list[SourcePassage],
+    *,
+    borderline_floor: float = 0.15,
+    neighborhood_threshold: float = 0.25,
+    method: str = "neighborhood_v1",
+) -> tuple[bool, float, str]:
+    """Semantic neighborhood reassessment for borderline passages (V8, I7).
+
+    When a source is borderline (Jaccard score between borderline_floor and
+    the grounding threshold), check if ACCEPTED passages are topically related.
+    If 2+ accepted passages share vocabulary with the borderline passage,
+    it's in the same semantic neighborhood and gets rescued.
+
+    Returns (is_rescued, adjusted_score, method).
+    Purely additive — never downgrades a passage that first-pass accepted.
+    """
+    claim_tokens = _tokenize(claim)
+    borderline_tokens = _tokenize(borderline_passage["content"])
+    base_score = _jaccard(claim_tokens, borderline_tokens)
+
+    # Below the floor — too far gone, don't attempt rescue
+    if base_score < borderline_floor:
+        return (False, round(base_score, 4), method)
+
+    # Count accepted passages that share vocabulary with borderline passage
+    neighbors = 0
+    for accepted in accepted_passages:
+        accepted_tokens = _tokenize(accepted["content"])
+        overlap = _jaccard(borderline_tokens, accepted_tokens)
+        if overlap >= neighborhood_threshold:
+            neighbors += 1
+
+    is_rescued = neighbors >= 2
+    if is_rescued:
+        # Boost score proportional to neighborhood density, cap at 0.35
+        adjusted_score = min(0.35, base_score + 0.05 * neighbors)
+    else:
+        adjusted_score = base_score
+
+    return (is_rescued, round(adjusted_score, 4), method)
+
+
 def compute_section_grounding_score(
     section_content: str,
     section_citations: list[str],
@@ -249,6 +294,34 @@ def compute_section_grounding_score(
 
     if total_claims == 0:
         return (0.0, claim_details)
+
+    # --- Second pass: rescue borderline claims via semantic neighborhood ---
+    # Collect passages that were accepted (grounded) in first pass
+    accepted_pids = {d["passage_id"] for d in claim_details if d["grounded"] and d["passage_id"]}
+    accepted_passages_list = [passage_by_id[pid] for pid in accepted_pids if pid in passage_by_id]
+
+    if accepted_passages_list:
+        for detail in claim_details:
+            if detail["grounded"] or not detail["passage_id"]:
+                continue  # already grounded or no passage to test
+            # Only attempt rescue for borderline scores (>= 0.15)
+            if detail["similarity"] < 0.15:
+                continue
+
+            borderline_p = passage_by_id.get(detail["passage_id"])
+            if borderline_p is None:
+                continue
+
+            rescued, adj_score, adj_method = second_pass_grounding(
+                detail["claim"],
+                borderline_p,
+                accepted_passages_list,
+            )
+            if rescued:
+                detail["grounded"] = True
+                detail["similarity"] = adj_score
+                detail["method"] = adj_method
+                grounded_count += 1
 
     grounding_score = round(grounded_count / total_claims, 4)
     return (grounding_score, claim_details)

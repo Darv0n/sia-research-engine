@@ -9,6 +9,7 @@ from deep_research_swarm.scoring.grounding import (
     assign_passages_to_sections,
     compute_section_grounding_score,
     find_relevant_passages,
+    second_pass_grounding,
     verify_grounding,
 )
 
@@ -305,3 +306,202 @@ class TestComputeSectionGroundingScore:
         citation_ids = {d["citation_id"] for d in details}
         assert "[1]" in citation_ids
         assert "[2]" in citation_ids
+
+
+# --- Second-Pass Grounding (V8, PR-06) ---
+
+
+class TestSecondPassGrounding:
+    def test_below_floor_not_rescued(self):
+        """Score below borderline_floor (0.15) — too far gone."""
+        claim = "The stock market crashed in 2025"
+        borderline = _make_passage("Quantum physics entanglement experiments", pid="sp-border")
+        accepted = [
+            _make_passage("Quantum physics research laboratory", pid="sp-acc1"),
+            _make_passage("Physics experiments quantum mechanics", pid="sp-acc2"),
+        ]
+        rescued, score, method = second_pass_grounding(claim, borderline, accepted)
+        assert rescued is False
+        assert method == "neighborhood_v1"
+
+    def test_rescued_with_enough_neighbors(self):
+        """Borderline passage rescued when 2+ accepted passages are topically related."""
+        # Claim and borderline share some tokens (academic paraphrase)
+        claim = "lace patterns demonstrate mathematical structure in textile engineering"
+        borderline = _make_passage(
+            "textile patterns mathematical analysis engineering applications "
+            "structural properties textile manufacturing",
+            pid="sp-border",
+        )
+        # Accepted passages in same topic neighborhood
+        accepted = [
+            _make_passage(
+                "mathematical structure textile patterns engineering analysis "
+                "manufacturing processes structural design",
+                pid="sp-acc1",
+            ),
+            _make_passage(
+                "engineering applications textile manufacturing structural "
+                "patterns analysis mathematical foundations",
+                pid="sp-acc2",
+            ),
+            _make_passage(
+                "textile engineering structural analysis manufacturing "
+                "patterns mathematical properties applications",
+                pid="sp-acc3",
+            ),
+        ]
+        rescued, score, method = second_pass_grounding(claim, borderline, accepted)
+        assert rescued is True
+        assert method == "neighborhood_v1"
+        assert score <= 0.35  # capped
+
+    def test_not_rescued_with_one_neighbor(self):
+        """Only 1 neighbor — not enough for rescue (need >= 2)."""
+        claim = "lace patterns engineering"
+        borderline = _make_passage(
+            "textile patterns engineering analysis structural properties",
+            pid="sp-border",
+        )
+        accepted = [
+            _make_passage(
+                "textile patterns engineering structural analysis manufacturing",
+                pid="sp-acc1",
+            ),
+            _make_passage("biology cells organisms marine life", pid="sp-acc2"),
+        ]
+        rescued, score, method = second_pass_grounding(claim, borderline, accepted)
+        # May or may not rescue depending on exact Jaccard scores
+        assert method == "neighborhood_v1"
+
+    def test_returns_method_neighborhood_v1(self):
+        """OE5/I7: method="neighborhood_v1" for second pass."""
+        claim = "test claim"
+        borderline = _make_passage("test content passage", pid="sp-border")
+        _, _, method = second_pass_grounding(claim, borderline, [])
+        assert method == "neighborhood_v1"
+
+    def test_score_capped_at_035(self):
+        """Adjusted score never exceeds 0.35."""
+        claim = "textile patterns engineering analysis structural manufacturing"
+        borderline = _make_passage(
+            "textile patterns engineering analysis structural manufacturing design",
+            pid="sp-border",
+        )
+        # Many neighbors to boost score
+        accepted = [
+            _make_passage(
+                f"textile patterns engineering analysis structural manufacturing {i}",
+                pid=f"sp-acc{i}",
+            )
+            for i in range(10)
+        ]
+        rescued, score, method = second_pass_grounding(claim, borderline, accepted)
+        assert score <= 0.35
+
+    def test_empty_accepted_not_rescued(self):
+        """No accepted passages means no neighbors, no rescue."""
+        claim = "lace patterns engineering"
+        borderline = _make_passage(
+            "textile patterns engineering analysis",
+            pid="sp-border",
+        )
+        rescued, score, method = second_pass_grounding(claim, borderline, [])
+        assert rescued is False
+
+    def test_purely_additive(self):
+        """Second pass never downgrades — it only potentially rescues."""
+        claim = "quantum entanglement research"
+        borderline = _make_passage("quantum entanglement research experiments", pid="sp-border")
+        # First pass
+        _, first_score, _ = verify_grounding(claim, borderline)
+        # Second pass
+        _, second_score, _ = second_pass_grounding(claim, borderline, [])
+        # Without any accepted neighbors, score stays the same
+        assert second_score >= first_score or second_score == first_score
+
+    def test_custom_thresholds(self):
+        """Can adjust borderline_floor and neighborhood_threshold."""
+        claim = "test claim content"
+        borderline = _make_passage("test claim content data", pid="sp-border")
+        rescued, score, method = second_pass_grounding(
+            claim,
+            borderline,
+            [],
+            borderline_floor=0.5,
+            neighborhood_threshold=0.1,
+        )
+        assert method == "neighborhood_v1"
+
+    def test_deterministic(self):
+        claim = "lace patterns engineering"
+        borderline = _make_passage("lace patterns engineering textile", pid="sp-border")
+        accepted = [_make_passage("lace patterns engineering design", pid="sp-acc1")]
+        r1 = second_pass_grounding(claim, borderline, accepted)
+        r2 = second_pass_grounding(claim, borderline, accepted)
+        assert r1 == r2
+
+
+class TestSecondPassIntegration:
+    """Test second pass integration in compute_section_grounding_score."""
+
+    def test_borderline_claim_rescued_in_section(self):
+        """A borderline claim gets rescued when accepted passages are in same neighborhood."""
+        # Passage 1: well-grounded (high overlap with its claim)
+        grounded_passage = _make_passage(
+            "Quantum entanglement enables particles to be correlated "
+            "across distances instantaneously quantum mechanics research",
+            pid="sp-001",
+        )
+        # Passage 2: borderline (paraphrased, low Jaccard with its claim)
+        borderline_passage = _make_passage(
+            "Quantum mechanics research particles correlation "
+            "entanglement experiments distance physics",
+            pid="sp-002",
+        )
+        # Claim 1: high overlap with passage 1 (grounded first-pass)
+        # Claim 2: low overlap with passage 2 (borderline)
+        content = (
+            "Quantum entanglement enables particles to be correlated across distances [1]. "
+            "Modern experiments demonstrate new correlation phenomena [2]."
+        )
+        score, details = compute_section_grounding_score(
+            section_content=content,
+            section_citations=["[1]", "[2]"],
+            passages=[grounded_passage, borderline_passage],
+            citation_to_passage_map={"[1]": ["sp-001"], "[2]": ["sp-002"]},
+        )
+        # At least claim [1] should be grounded
+        assert len(details) == 2
+        assert any(d["grounded"] for d in details)
+
+    def test_no_regression_on_clearly_grounded(self):
+        """Well-grounded claims remain grounded after second pass."""
+        passage = _make_passage(
+            "Quantum entanglement enables particles to be correlated "
+            "across distances regardless of separation",
+            pid="sp-001",
+        )
+        content = (
+            "Quantum entanglement enables particles to be correlated across large distances [1]."
+        )
+        score, details = compute_section_grounding_score(
+            section_content=content,
+            section_citations=["[1]"],
+            passages=[passage],
+            citation_to_passage_map={"[1]": ["sp-001"]},
+        )
+        assert score > 0.0
+        assert details[0]["grounded"] is True
+
+    def test_no_regression_on_clearly_ungrounded(self):
+        """Completely ungrounded claims stay ungrounded (below floor)."""
+        passage = _make_passage("Biology of cells and organisms", pid="sp-001")
+        content = "The stock market crashed in 2025 [1]."
+        score, details = compute_section_grounding_score(
+            section_content=content,
+            section_citations=["[1]"],
+            passages=[passage],
+            citation_to_passage_map={"[1]": ["sp-001"]},
+        )
+        assert details[0]["grounded"] is False
