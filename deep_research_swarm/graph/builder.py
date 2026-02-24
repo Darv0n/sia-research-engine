@@ -46,6 +46,7 @@ from deep_research_swarm.sia.entropy import (
     detect_false_convergence,
     entropy_gate,
 )
+from deep_research_swarm.sia.singularity_prevention import singularity_check
 
 if TYPE_CHECKING:
     from deep_research_swarm.event_log.writer import EventLog
@@ -779,6 +780,15 @@ def build_graph(
         entropy_history = state.get("entropy_history", [])
         dom, dom_reason = detect_dominance(entropy_history, section_drafts)
 
+        # Singularity check (V10 Phase 4) — uses reactor_trace if available
+        reactor_trace = state.get("reactor_trace", {})
+        sing_safe, sing_reason, sing_details = True, "no_reactor", {}
+        if reactor_trace:
+            # Build reactor state from turn log in reactor_trace
+            # The full reactor state is reconstructed from the trace
+            reactor_state_for_check = state.get("reactor_trace", {})
+            sing_safe, sing_reason, sing_details = singularity_check(reactor_state_for_check)
+
         # If entropy blocks convergence, override critic's decision
         result: dict = {
             "entropy_state": dict(entropy),
@@ -786,7 +796,9 @@ def build_graph(
         }
 
         if state.get("converged", False):
-            # Entropy can veto convergence
+            # Five-way convergence check (V10 Phase 4):
+            # confidence AND entropy_gate AND NOT false_convergence
+            # AND NOT dominance AND singularity_safe
             if not gate_ok:
                 result["converged"] = False
                 result["convergence_reason"] = f"entropy_veto: {gate_reason}"
@@ -796,6 +808,9 @@ def build_graph(
             elif dom:
                 result["converged"] = False
                 result["convergence_reason"] = f"dominance_detected: {dom_reason}"
+            elif not sing_safe:
+                result["converged"] = False
+                result["convergence_reason"] = f"singularity: {sing_reason}"
 
         # Stream entropy event if writer available
         writer = _get_stream_writer(config)
@@ -816,6 +831,38 @@ def build_graph(
                 )
             except Exception:
                 pass
+
+            # Stream singularity check result
+            if reactor_trace:
+                try:
+                    writer(
+                        {
+                            "kind": "singularity_check",
+                            "safe": sing_safe,
+                            "reason": sing_reason,
+                        }
+                    )
+                except Exception:
+                    pass
+
+            # Stream adversarial findings summary
+            adv_findings = state.get("adversarial_findings", [])
+            if adv_findings:
+                try:
+                    writer(
+                        {
+                            "kind": "adversarial_summary",
+                            "findings_count": len(adv_findings),
+                            "critical": sum(
+                                1 for f in adv_findings if f.get("severity") == "critical"
+                            ),
+                            "significant": sum(
+                                1 for f in adv_findings if f.get("severity") == "significant"
+                            ),
+                        }
+                    )
+                except Exception:
+                    pass
 
         return result
 

@@ -131,3 +131,7 @@ class ResearchState(TypedDict):
 
     # SIA Reactor (V10 Phase 3) — multi-turn deliberation trace
     reactor_trace: Annotated[dict, _replace_dict]
+
+    # Adversarial Critique (V10 Phase 4) — multi-turn evaluation
+    adversarial_findings: Annotated[list, _replace_list]
+    critique_trace: Annotated[dict, _replace_dict]

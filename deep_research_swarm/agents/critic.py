@@ -4,6 +4,10 @@ Three specialized graders evaluate distinct failure modes:
 - Relevance: Does the content answer the research question?
 - Hallucination: Are claims grounded in cited sources?
 - Quality: Is the writing clear, deep, and well-organized?
+
+V10/SIA: When entropy_state is present and reactor_trace is present,
+switches to adversarial multi-turn critique (sia/adversarial_critique.py).
+Classic 3-grader chain remains as fallback.
 """
 
 from __future__ import annotations
@@ -98,13 +102,41 @@ async def _grade_dimension(
     return scores_by_id, usage
 
 
+def _is_sia_enabled(state: ResearchState) -> bool:
+    """Check if SIA adversarial critique should be used.
+
+    SIA critique activates when both entropy_state and reactor_trace are present,
+    indicating the SIA pipeline is active.
+    """
+    return bool(state.get("entropy_state")) and bool(state.get("reactor_trace"))
+
+
 async def critique(
     state: ResearchState,
     caller: AgentCaller,
     *,
     convergence_threshold: float = 0.05,
 ) -> dict:
-    """Three-grader chain: evaluate sections then determine convergence."""
+    """Evaluate sections and determine convergence.
+
+    V10/SIA: when SIA pipeline is active, uses adversarial multi-turn critique.
+    Otherwise: classic three-grader chain.
+    """
+    # V10: SIA mode switch
+    if _is_sia_enabled(state):
+        try:
+            from deep_research_swarm.sia.adversarial_critique import (
+                adversarial_critique,
+            )
+
+            return await adversarial_critique(
+                state, caller, convergence_threshold=convergence_threshold
+            )
+        except Exception:
+            # Graceful degradation: fall back to classic critique
+            pass
+
+    # Classic three-grader chain
     research_question = state["research_question"]
     section_drafts = state.get("section_drafts", [])
     current_iteration = state.get("current_iteration", 1)
