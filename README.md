@@ -81,6 +81,37 @@ python -m deep_research_swarm "What is quantum entanglement?"
 
 **Model tiering**: Opus handles planning, synthesis, and report generation. Sonnet handles the three critic graders (5x cost reduction for structured evaluation). **State management**: LangGraph StateGraph with annotated reducers — accumulating fields use `operator.add`, overwrite fields use replace-last-write semantics.
 
+<details>
+<summary><b>Pipeline Graph (Mermaid source)</b></summary>
+
+```mermaid
+flowchart LR
+    HC[Health Check] --> P[Plan]
+    P --> PG{Plan Gate}
+    PG --> S[Search]
+    S --> AE[Adapt Extraction]
+    AE --> E[Extract]
+    E --> CH[Chunk Passages]
+    CH --> SC[Score]
+    SC --> AS[Adapt Synthesis]
+    AS --> CC[Citation Chain]
+    CC --> CD[Contradiction]
+    CD --> SY[Synthesize]
+    SY --> CR[Critique]
+    CR --> RB[Rollup Budget]
+    RB -->|Not converged| P
+    RB -->|Converged| RP[Report]
+    RP --> RG{Report Gate}
+```
+
+```
+health_check → plan → [plan_gate] → search → adapt_extraction → extract → chunk_passages
+→ score → adapt_synthesis → citation_chain → contradiction → synthesize → critique
+→ rollup_budget → [converge?] → report → [report_gate]
+```
+
+</details>
+
 <details open>
 <summary><b>How It Works</b></summary>
 
