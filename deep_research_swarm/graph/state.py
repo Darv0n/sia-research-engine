@@ -110,3 +110,10 @@ class ResearchState(TypedDict):
     tunable_snapshot: Annotated[dict, _replace_dict]
     adaptation_events: Annotated[list[AdaptationEvent], operator.add]
     complexity_profile: Annotated[ComplexityProfile, _replace_dict]
+
+    # Reactive search (V9) — gap analysis follow-up
+    follow_up_queries: Annotated[list[SubQuery], operator.add]
+    follow_up_round: Annotated[int, _replace_int]
+
+    # Pre-research clarification (V9) — scope hints
+    scope_hints: Annotated[dict, _replace_dict]

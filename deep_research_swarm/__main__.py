@@ -216,11 +216,28 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help="Execution mode: 'auto' (default) or 'hitl' (human-in-the-loop gates)",
     )
+    # V9 flags
+    parser.add_argument(
+        "--format",
+        type=str,
+        choices=["md", "docx", "pdf"],
+        default="md",
+        help="Output format: md (default), docx, or pdf (requires pandoc)",
+    )
+    parser.add_argument(
+        "--follow-up",
+        type=str,
+        nargs=2,
+        default=None,
+        metavar=("THREAD_ID", "QUESTION"),
+        help="Ask a follow-up question on a previous research thread",
+    )
     args = parser.parse_args()
 
-    # Validate: need question, --resume, or a standalone flag
+    # Validate: need question, --resume, --follow-up, or a standalone flag
     standalone = args.list_threads or args.dump_state or args.list_memories or args.export_mcp
-    if not args.question and not args.resume and not standalone:
+    follow_up = getattr(args, "follow_up", None)
+    if not args.question and not args.resume and not follow_up and not standalone:
         parser.error(
             "a question is required (or use --resume THREAD_ID / --list-threads "
             "/ --dump-state THREAD_ID / --list-memories / --export-mcp)"
@@ -314,7 +331,13 @@ def _print_interrupt_from_state(state_snapshot, config: dict) -> None:
     print(f"\nResume with: python -m deep_research_swarm --resume {thread_id}", file=sys.stderr)
 
 
-def _output_report(result: dict, *, output_path_override: str | None, question: str) -> None:
+def _output_report(
+    result: dict,
+    *,
+    output_path_override: str | None,
+    question: str,
+    output_format: str = "md",
+) -> None:
     """Print report to stdout and save to file."""
     report = result.get("final_report", "")
     if not report:
@@ -329,17 +352,28 @@ def _output_report(result: dict, *, output_path_override: str | None, question: 
     output_dir = Path(__file__).resolve().parent.parent / "output"
     output_dir.mkdir(exist_ok=True)
 
+    ts = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
+    safe_q = "".join(c if c.isalnum() or c in "-_ " else "" for c in question[:50])
+    safe_q = safe_q.strip().replace(" ", "-").lower()
+
     if output_path_override:
         output_path = Path(output_path_override)
     else:
-        ts = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
-        safe_q = "".join(c if c.isalnum() or c in "-_ " else "" for c in question[:50])
-        safe_q = safe_q.strip().replace(" ", "-").lower()
         output_path = output_dir / f"{ts}-{safe_q}.md"
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(report, encoding="utf-8")
     print(f"\nReport saved to: {output_path}", file=sys.stderr)
+
+    # V9: Multi-format export (G8)
+    if output_format in ("docx", "pdf"):
+        from deep_research_swarm.reporting.export import convert_report
+
+        export_path = output_path.with_suffix(f".{output_format}")
+        if convert_report(report, output_format, str(export_path)):
+            print(f"Exported to: {export_path}", file=sys.stderr)
+        else:
+            print(f"WARNING: {output_format.upper()} export failed.", file=sys.stderr)
 
     # Print summary
     total_tokens = result.get("total_tokens_used", 0)
@@ -561,7 +595,12 @@ async def run(args: argparse.Namespace) -> None:
                 # Completed run — display stored report
                 print(f"Thread '{args.resume}' already completed.", file=sys.stderr)
                 question = snapshot.values.get("research_question", args.resume)
-                _output_report(snapshot.values, output_path_override=args.output, question=question)
+                _output_report(
+                    snapshot.values,
+                    output_path_override=args.output,
+                    question=question,
+                    output_format=getattr(args, "format", "md"),
+                )
                 return
 
             # Check if paused at a HITL gate — resume with Command
@@ -594,7 +633,109 @@ async def run(args: argparse.Namespace) -> None:
                 # Hit another HITL gate
                 return
             question = result.get("research_question", args.resume)
-            _output_report(result, output_path_override=args.output, question=question)
+            _output_report(
+                result,
+                output_path_override=args.output,
+                question=question,
+                output_format=getattr(args, "format", "md"),
+            )
+        return
+
+    # --- Follow-up path (V9) ---
+
+    follow_up = getattr(args, "follow_up", None)
+    if follow_up:
+        thread_id, follow_up_question = follow_up
+
+        if settings.checkpoint_backend == "none":
+            print("ERROR: Cannot follow-up with checkpoint_backend='none'", file=sys.stderr)
+            sys.exit(1)
+
+        if settings.checkpoint_backend == "sqlite" and not Path(db_path).exists():
+            print(f"ERROR: Checkpoint database not found: {db_path}", file=sys.stderr)
+            sys.exit(1)
+
+        async with _make_checkpointer(settings, db_path) as checkpointer:
+            graph = build_graph(
+                settings,
+                enable_cache=not args.no_cache,
+                checkpointer=checkpointer,
+                mode=mode,
+            )
+            config = {"configurable": {"thread_id": thread_id}}
+
+            snapshot = await graph.aget_state(config=config)
+            if not snapshot or not snapshot.values:
+                print(f"ERROR: No checkpoint found for thread '{thread_id}'", file=sys.stderr)
+                sys.exit(1)
+
+            # Modify the state to add the follow-up question
+            prev_state = snapshot.values
+            original_question = prev_state.get("research_question", "")
+
+            print(f"Follow-up on: {original_question}", file=sys.stderr)
+            print(f"Follow-up question: {follow_up_question}", file=sys.stderr)
+
+            # Create a new thread for the follow-up run
+            new_thread_id = _generate_thread_id()
+            new_config = {"configurable": {"thread_id": new_thread_id}}
+
+            # Build follow-up initial state — carry forward context from previous run
+            followup_state = {
+                "research_question": follow_up_question,
+                "max_iterations": args.max_iterations or 1,  # Usually 1 iteration for follow-ups
+                "token_budget": args.token_budget or settings.token_budget,
+                "search_backends": args.backends or settings.available_backends(),
+                "memory_context": (
+                    f"Previous research on: {original_question}\n"
+                    + "\n".join(
+                        f"- {s['heading']}: {s['content'][:200]}..."
+                        for s in prev_state.get("section_drafts", [])[:5]
+                    )
+                ),
+                "mode": mode,
+                "perspectives": [],
+                "sub_queries": [],
+                "search_results": [],
+                "extracted_contents": [],
+                "scored_documents": [],
+                "diversity_metrics": {},
+                "section_drafts": [],
+                "citations": [],
+                "contradictions": [],
+                "research_gaps": [],
+                "current_iteration": 0,
+                "converged": False,
+                "convergence_reason": "",
+                "token_usage": [],
+                "total_tokens_used": 0,
+                "total_cost_usd": 0.0,
+                "iteration_history": [],
+                "final_report": "",
+                "follow_up_queries": [],
+                "follow_up_round": 0,
+                "scope_hints": {},
+            }
+
+            print(f"Thread: {new_thread_id}", file=sys.stderr)
+            print("---", file=sys.stderr)
+
+            result = await _execute(
+                graph,
+                followup_state,
+                new_config,
+                no_stream=args.no_stream,
+                verbose=args.verbose,
+            )
+
+            if result is None:
+                return
+            _output_report(
+                result,
+                output_path_override=args.output,
+                question=follow_up_question,
+                output_format=getattr(args, "format", "md"),
+            )
         return
 
     # --- New research run ---
@@ -670,6 +811,9 @@ async def run(args: argparse.Namespace) -> None:
         "total_cost_usd": 0.0,
         "iteration_history": [],
         "final_report": "",
+        "follow_up_queries": [],
+        "follow_up_round": 0,
+        "scope_hints": {},
     }
 
     use_checkpointer = settings.checkpoint_backend != "none"
@@ -732,7 +876,12 @@ async def run(args: argparse.Namespace) -> None:
             print(f"Event log: {event_log.path}", file=sys.stderr)
         return
 
-    _output_report(result, output_path_override=args.output, question=args.question)
+    _output_report(
+        result,
+        output_path_override=args.output,
+        question=args.question,
+        output_format=getattr(args, "format", "md"),
+    )
 
     # V8: Print complexity profile
     if args.complexity:

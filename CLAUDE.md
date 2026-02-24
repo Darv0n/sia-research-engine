@@ -2,17 +2,18 @@
 
 ## Current State
 
-- **Version**: V8 (adaptive intelligence: tunable overseer, second-pass grounding, embedding grounding, claim graph, OCR/GROBID, PROV-O)
-- **Tests**: 710+ passing (run with `.venv/Scripts/python.exe -m pytest tests/ -v`)
+- **Version**: V9 (competitive parity: reactive search, query volume, pre-research clarification, multi-format export, rich streaming, follow-up questions)
+- **Tests**: 757+ passing (run with `.venv/Scripts/python.exe -m pytest tests/ -v`)
 - **Repo**: https://github.com/Darv0n/deep-research-swarm.git
 
 ## Architecture
 
 LangGraph StateGraph orchestrating multi-agent research pipeline:
 ```
-health_check -> plan -> [plan_gate?] -> search -> adapt_extraction -> extract -> chunk_passages -> score -> adapt_synthesis -> citation_chain -> contradiction -> synthesize -> critique -> rollup_budget -> [converge?] -> report -> [report_gate?]
+health_check -> clarify -> plan -> [plan_gate?] -> search -> adapt_extraction -> extract -> chunk_passages -> score -> gap_analysis -> [follow_up?] -> adapt_synthesis -> citation_chain -> contradiction -> synthesize -> critique -> rollup_budget -> [converge?] -> report -> [report_gate?]
 ```
 Gate nodes (`plan_gate`, `report_gate`) only present when `--mode hitl` and checkpointer is active.
+V9 reactive loop: `gap_analysis` can trigger `search_followup -> extract_followup -> score_merge` before continuing to `adapt_synthesis`.
 
 ## Key Files
 
@@ -21,8 +22,22 @@ Gate nodes (`plan_gate`, `report_gate`) only present when `--mode hitl` and chec
 - `graph/state.py` — ResearchState TypedDict with annotated reducers
 - `graph/builder.py` — Graph construction, node closures, edge wiring
 
+### V9 Additions
+- `agents/clarifier.py` — Pre-research scope analysis: heuristic (auto) or LLM (HITL), populates scope_hints
+- `agents/gap_analyzer.py` — Reactive search: examines scored docs, identifies knowledge gaps, generates follow-up queries
+- `reporting/export.py` — Multi-format export: pandoc-based DOCX/PDF conversion with graceful fallback
+- **Reactive search loop** — gap_analysis -> search_followup -> extract_followup -> score_merge (conditional, within-iteration)
+- **Query volume** — 5 perspectives x 2-3 queries = 10-15 queries/iteration (up from 3 x 1-2 = 3-9)
+- **Source volume** — extraction_cap default 50 (up from 30), results_per_query 15 (up from 10), URL prioritization by score
+- **Report depth** — 400-800 words/section (up from 200-500), richer intro/conclusion, max_sections 8 (ceiling 15)
+- **Plan transparency** — Research plan streamed in all modes, not just HITL
+- **Rich streaming** — Intermediate findings, grounding summary, contradiction counts emitted during pipeline
+- **Follow-up questions** — `--follow-up THREAD_ID "question"` loads previous context for iterative research
+- **Multi-format export** — `--format docx|pdf` via pandoc
+- **New tunables** — perspectives_count, target_queries, follow_up_budget (18 total, up from 15)
+
 ### V8 Additions
-- `adaptive/registry.py` — TunableRegistry with 15 bounded tunables (floor/ceiling, snapshot/restore)
+- `adaptive/registry.py` — TunableRegistry with bounded tunables (floor/ceiling, snapshot/restore)
 - `adaptive/complexity.py` — Complexity analyzer: volume/backend/iteration factors -> multiplier (0.5-2.0)
 - `adaptive/adapt_extraction.py` — Overseer node: scales extraction_cap, results_per_query, content_truncation_chars
 - `adaptive/adapt_synthesis.py` — Overseer node: scales citation_chain_budget, contradiction_max_docs, max_sections, budget pacing
@@ -68,6 +83,8 @@ Tunable, ComplexityProfile, AdaptationEvent
 - Accumulating (operator.add): search_backends, perspectives, sub_queries, search_results, extracted_contents, token_usage, iteration_history, source_passages, citation_chain_results
 - Replace-last-write: scored_documents, diversity_metrics, section_drafts, citations, contradictions, research_gaps, current_iteration, converged, convergence_reason, total_tokens_used, total_cost_usd, final_report, memory_context, citation_to_passage_map, tunable_snapshot, complexity_profile
 - V8 accumulating: adaptation_events
+- V9 accumulating: follow_up_queries
+- V9 replace: follow_up_round, scope_hints
 
 ## Conventions
 
@@ -102,6 +119,8 @@ Tunable, ComplexityProfile, AdaptationEvent
 - `--export-prov-o PATH` — Export PROV-O JSON-LD provenance to file
 - `--embedding-model MODEL` — Override embedding model for grounding
 - `--grobid-url URL` — GROBID server URL for PDF extraction
+- `--format md|docx|pdf` — Output format (default: md, requires pandoc for docx/pdf)
+- `--follow-up THREAD_ID "question"` — Ask a follow-up question on a previous research thread
 
 ## Config Vars
 
@@ -137,12 +156,12 @@ Tunable, ComplexityProfile, AdaptationEvent
 ## Testing
 
 ```bash
-.venv/Scripts/python.exe -m pytest tests/ -v                    # All 710+ tests
+.venv/Scripts/python.exe -m pytest tests/ -v                    # All 757+ tests
 .venv/Scripts/python.exe -m pytest tests/ -k "not integration"  # Unit only
 .venv/Scripts/python.exe -m ruff check . && .venv/Scripts/python.exe -m ruff format --check .
 ```
 
-## Deferred to V9
+## Deferred to V10
 
 - **Internal hybrid index** — OpenSearch k-NN (IndexedContent stub is the handshake)
 - **Focused crawling** — priority frontier for deep site exploration
@@ -152,3 +171,5 @@ Tunable, ComplexityProfile, AdaptationEvent
 - **Memory pruning** — automatic cleanup of old/low-value records
 - **Live GROBID integration test** — requires running GROBID Docker container
 - **Planner integration for incremental research** — wire filter_unchanged_sources() into planner skip logic
+- **Code execution during research** — Sandboxed Python for quantitative analysis (P10 from gap analysis)
+- **Conversational follow-up UX** — Interactive multi-turn follow-up (current --follow-up is single-shot)

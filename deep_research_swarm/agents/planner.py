@@ -16,25 +16,29 @@ You are a research planning agent. Given a research question, decompose it \
 using STORM-style perspective-guided questioning.
 
 Your job:
-1. Identify 3 diverse perspectives from which to investigate the question.
-2. For each perspective, generate 1-2 specific sub-queries for a search engine.
+1. Identify {perspectives_count} diverse perspectives from which to investigate the question.
+2. For each perspective, generate 2-3 specific sub-queries for a search engine.
+   Target {target_queries} total queries.
 3. Assign priority (1=highest, 5=lowest) based on centrality to the question.
+4. Vary query phrasing: include both broad context queries and specific detail queries.
+5. Include at least one query targeting recent developments/updates.
 
 Output STRICT JSON (no markdown, no commentary):
-{
-  "perspectives": ["perspective1", "perspective2", "perspective3"],
+{{
+  "perspectives": ["perspective1", "perspective2", ...],
   "sub_queries": [
-    {
+    {{
       "question": "specific search query",
       "perspective": "which perspective this serves",
       "priority": 1
-    }
+    }}
   ]
-}
+}}
 
 Rules:
 - Sub-queries must be concrete and searchable (not vague or philosophical).
 - Each sub-query should target a different facet of the question.
+- Mix query types: definitional, comparative, statistical, temporal, causal.
 - If re-planning, you will see previous queries and gaps. \
 Generate NEW queries that address the gaps. Do NOT repeat previous queries.
 """
@@ -52,7 +56,19 @@ async def plan(
     existing_queries = [sq["question"] for sq in state.get("sub_queries", [])]
     gaps = state.get("research_gaps", [])
 
+    # Read adaptive tunables (V9) — perspectives and query volume
+    _snap = state.get("tunable_snapshot", {})
+    perspectives_count = int(_snap.get("perspectives_count", 5))
+    target_queries = int(_snap.get("target_queries", 12))
+
     user_content = f"Research question: {research_question}"
+
+    # V9: Use scope hints from clarification step
+    scope_hints = state.get("scope_hints", {})
+    if scope_hints:
+        user_content += "\n\nScope analysis:"
+        for k, v in scope_hints.items():
+            user_content += f"\n- {k}: {v}"
 
     memory_context = state.get("memory_context", "")
     if memory_context:
@@ -71,11 +87,16 @@ async def plan(
             gap_descs = [g["description"] for g in gaps]
             user_content += f"\nIdentified gaps to address:\n{json.dumps(gap_descs, indent=2)}"
 
+    system_prompt = PLANNER_SYSTEM.format(
+        perspectives_count=perspectives_count,
+        target_queries=target_queries,
+    )
+
     data, usage = await caller.call_json(
-        system=PLANNER_SYSTEM,
+        system=system_prompt,
         messages=[{"role": "user", "content": user_content}],
         agent_name="planner",
-        max_tokens=2048,
+        max_tokens=4096,
     )
 
     perspectives = data.get("perspectives", [])

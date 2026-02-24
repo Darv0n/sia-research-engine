@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 540" font-family="Segoe UI, system-ui, sans-serif">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 580" font-family="Segoe UI, system-ui, sans-serif">
 
   <defs>
     <marker id="a" viewBox="0 0 10 7" refX="9" refY="3.5" markerWidth="8" markerHeight="6" orient="auto">
@@ -7,121 +7,141 @@
     <marker id="b" viewBox="0 0 10 7" refX="9" refY="3.5" markerWidth="8" markerHeight="6" orient="auto">
       <polygon points="0 0, 10 3.5, 0 7" fill="#e03131"/>
     </marker>
+    <marker id="c" viewBox="0 0 10 7" refX="9" refY="3.5" markerWidth="8" markerHeight="6" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#9775fa"/>
+    </marker>
   </defs>
 
-  <!-- Row 1 -->
-  <rect x="20" y="40" width="110" height="36" rx="5" fill="#e9ecef" stroke="#ced4da"/>
-  <text x="75" y="63" text-anchor="middle" fill="#495057" font-size="12" font-weight="600">Health Check</text>
+  <!-- Row 1: Health Check -> Clarify -> Plan -> Gate -> Search -> Adapt Extraction -> Extract -->
+  <rect x="10" y="40" width="100" height="36" rx="5" fill="#e9ecef" stroke="#ced4da"/>
+  <text x="60" y="63" text-anchor="middle" fill="#495057" font-size="11" font-weight="600">Health Check</text>
 
-  <line x1="130" y1="58" x2="152" y2="58" stroke="#868e96" stroke-width="1.5" marker-end="url(#a)"/>
+  <line x1="110" y1="58" x2="127" y2="58" stroke="#868e96" stroke-width="1.5" marker-end="url(#a)"/>
 
-  <rect x="155" y="40" width="110" height="36" rx="5" fill="#4a9eff" stroke="#3b8de6"/>
-  <text x="210" y="63" text-anchor="middle" fill="#fff" font-size="12" font-weight="600">Plan</text>
-  <text x="210" y="90" text-anchor="middle" fill="#868e96" font-size="10" font-style="italic">STORM queries</text>
+  <rect x="130" y="40" width="90" height="36" rx="5" fill="#9775fa" stroke="#845ef7"/>
+  <text x="175" y="63" text-anchor="middle" fill="#fff" font-size="11" font-weight="600">Clarify</text>
+  <text x="175" y="90" text-anchor="middle" fill="#868e96" font-size="9" font-style="italic">scope analysis</text>
 
-  <line x1="265" y1="58" x2="287" y2="58" stroke="#868e96" stroke-width="1.5" marker-end="url(#a)"/>
+  <line x1="220" y1="58" x2="237" y2="58" stroke="#868e96" stroke-width="1.5" marker-end="url(#a)"/>
 
-  <rect x="290" y="42" width="80" height="32" rx="5" fill="none" stroke="#adb5bd" stroke-dasharray="5 3"/>
-  <text x="330" y="62" text-anchor="middle" fill="#adb5bd" font-size="11">Gate</text>
+  <rect x="240" y="40" width="90" height="36" rx="5" fill="#4a9eff" stroke="#3b8de6"/>
+  <text x="285" y="63" text-anchor="middle" fill="#fff" font-size="11" font-weight="600">Plan</text>
+  <text x="285" y="90" text-anchor="middle" fill="#868e96" font-size="9" font-style="italic">10-15 queries</text>
 
-  <line x1="370" y1="58" x2="392" y2="58" stroke="#868e96" stroke-width="1.5" marker-end="url(#a)"/>
+  <line x1="330" y1="58" x2="347" y2="58" stroke="#868e96" stroke-width="1.5" marker-end="url(#a)"/>
 
-  <rect x="395" y="40" width="110" height="36" rx="5" fill="#e9ecef" stroke="#ced4da"/>
-  <text x="450" y="63" text-anchor="middle" fill="#495057" font-size="12" font-weight="600">Search</text>
-  <text x="450" y="90" text-anchor="middle" fill="#868e96" font-size="10" font-style="italic">6 backends, fan-out</text>
+  <rect x="350" y="42" width="70" height="32" rx="5" fill="none" stroke="#adb5bd" stroke-dasharray="5 3"/>
+  <text x="385" y="62" text-anchor="middle" fill="#adb5bd" font-size="10">Gate</text>
 
-  <line x1="505" y1="58" x2="527" y2="58" stroke="#868e96" stroke-width="1.5" marker-end="url(#a)"/>
+  <line x1="420" y1="58" x2="437" y2="58" stroke="#868e96" stroke-width="1.5" marker-end="url(#a)"/>
 
-  <rect x="530" y="40" width="130" height="36" rx="5" fill="#51cf66" stroke="#40c057"/>
-  <text x="595" y="63" text-anchor="middle" fill="#fff" font-size="12" font-weight="600">Adapt Extraction</text>
-  <text x="595" y="90" text-anchor="middle" fill="#868e96" font-size="10" font-style="italic">scale caps 15-100</text>
+  <rect x="440" y="40" width="90" height="36" rx="5" fill="#e9ecef" stroke="#ced4da"/>
+  <text x="485" y="63" text-anchor="middle" fill="#495057" font-size="11" font-weight="600">Search</text>
+  <text x="485" y="90" text-anchor="middle" fill="#868e96" font-size="9" font-style="italic">6 backends</text>
 
-  <line x1="660" y1="58" x2="682" y2="58" stroke="#868e96" stroke-width="1.5" marker-end="url(#a)"/>
+  <line x1="530" y1="58" x2="547" y2="58" stroke="#868e96" stroke-width="1.5" marker-end="url(#a)"/>
 
-  <rect x="685" y="40" width="110" height="36" rx="5" fill="#e9ecef" stroke="#ced4da"/>
-  <text x="740" y="63" text-anchor="middle" fill="#495057" font-size="12" font-weight="600">Extract</text>
-  <text x="740" y="90" text-anchor="middle" fill="#868e96" font-size="10" font-style="italic">6-tier cascade</text>
+  <rect x="550" y="40" width="120" height="36" rx="5" fill="#51cf66" stroke="#40c057"/>
+  <text x="610" y="63" text-anchor="middle" fill="#fff" font-size="11" font-weight="600">Adapt Extraction</text>
+  <text x="610" y="90" text-anchor="middle" fill="#868e96" font-size="9" font-style="italic">scale caps 15-150</text>
 
-  <!-- Connector Row 1 → Row 2 -->
-  <path d="M 795 58 Q 840 58 840 118 Q 840 178 795 178" fill="none" stroke="#868e96" stroke-width="1.5" marker-end="url(#a)"/>
+  <line x1="670" y1="58" x2="687" y2="58" stroke="#868e96" stroke-width="1.5" marker-end="url(#a)"/>
 
-  <!-- Row 2 (right to left) -->
-  <rect x="685" y="160" width="110" height="36" rx="5" fill="#e9ecef" stroke="#ced4da"/>
-  <text x="740" y="183" text-anchor="middle" fill="#495057" font-size="12" font-weight="600">Chunk</text>
-  <text x="740" y="210" text-anchor="middle" fill="#868e96" font-size="10" font-style="italic">4-tier passages</text>
+  <rect x="690" y="40" width="100" height="36" rx="5" fill="#e9ecef" stroke="#ced4da"/>
+  <text x="740" y="63" text-anchor="middle" fill="#495057" font-size="11" font-weight="600">Extract</text>
+  <text x="740" y="90" text-anchor="middle" fill="#868e96" font-size="9" font-style="italic">6-tier cascade</text>
 
-  <line x1="685" y1="178" x2="663" y2="178" stroke="#868e96" stroke-width="1.5" marker-end="url(#a)"/>
+  <!-- Connector Row 1 -> Row 2 -->
+  <path d="M 790 58 Q 830 58 830 118 Q 830 178 790 178" fill="none" stroke="#868e96" stroke-width="1.5" marker-end="url(#a)"/>
 
-  <rect x="530" y="160" width="130" height="36" rx="5" fill="#ff922b" stroke="#f08c00"/>
-  <text x="595" y="183" text-anchor="middle" fill="#fff" font-size="12" font-weight="600">Score</text>
-  <text x="595" y="210" text-anchor="middle" fill="#868e96" font-size="10" font-style="italic">RRF + authority</text>
+  <!-- Row 2 (right to left): Chunk -> Score -> Gap Analysis -> Adapt Synthesis -> Citation Chain -> Contradiction -->
+  <rect x="690" y="160" width="100" height="36" rx="5" fill="#e9ecef" stroke="#ced4da"/>
+  <text x="740" y="183" text-anchor="middle" fill="#495057" font-size="11" font-weight="600">Chunk</text>
+  <text x="740" y="210" text-anchor="middle" fill="#868e96" font-size="9" font-style="italic">4-tier passages</text>
 
-  <line x1="530" y1="178" x2="508" y2="178" stroke="#868e96" stroke-width="1.5" marker-end="url(#a)"/>
+  <line x1="690" y1="178" x2="673" y2="178" stroke="#868e96" stroke-width="1.5" marker-end="url(#a)"/>
 
-  <rect x="370" y="160" width="135" height="36" rx="5" fill="#51cf66" stroke="#40c057"/>
-  <text x="437" y="183" text-anchor="middle" fill="#fff" font-size="12" font-weight="600">Adapt Synthesis</text>
-  <text x="437" y="210" text-anchor="middle" fill="#868e96" font-size="10" font-style="italic">token pacing</text>
+  <rect x="550" y="160" width="120" height="36" rx="5" fill="#ff922b" stroke="#f08c00"/>
+  <text x="610" y="183" text-anchor="middle" fill="#fff" font-size="11" font-weight="600">Score</text>
+  <text x="610" y="210" text-anchor="middle" fill="#868e96" font-size="9" font-style="italic">RRF + authority</text>
 
-  <line x1="370" y1="178" x2="348" y2="178" stroke="#868e96" stroke-width="1.5" marker-end="url(#a)"/>
+  <line x1="550" y1="178" x2="533" y2="178" stroke="#868e96" stroke-width="1.5" marker-end="url(#a)"/>
 
-  <rect x="215" y="160" width="130" height="36" rx="5" fill="#e9ecef" stroke="#ced4da"/>
-  <text x="280" y="183" text-anchor="middle" fill="#495057" font-size="12" font-weight="600">Citation Chain</text>
-  <text x="280" y="210" text-anchor="middle" fill="#868e96" font-size="10" font-style="italic">BFS via S2</text>
+  <rect x="410" y="160" width="120" height="36" rx="5" fill="#9775fa" stroke="#845ef7"/>
+  <text x="470" y="183" text-anchor="middle" fill="#fff" font-size="11" font-weight="600">Gap Analysis</text>
+  <text x="470" y="210" text-anchor="middle" fill="#868e96" font-size="9" font-style="italic">reactive search</text>
 
-  <line x1="215" y1="178" x2="193" y2="178" stroke="#868e96" stroke-width="1.5" marker-end="url(#a)"/>
+  <line x1="410" y1="178" x2="393" y2="178" stroke="#868e96" stroke-width="1.5" marker-end="url(#a)"/>
 
-  <rect x="60" y="160" width="130" height="36" rx="5" fill="#e9ecef" stroke="#ced4da"/>
-  <text x="125" y="183" text-anchor="middle" fill="#495057" font-size="12" font-weight="600">Contradiction</text>
+  <rect x="260" y="160" width="130" height="36" rx="5" fill="#51cf66" stroke="#40c057"/>
+  <text x="325" y="183" text-anchor="middle" fill="#fff" font-size="11" font-weight="600">Adapt Synthesis</text>
+  <text x="325" y="210" text-anchor="middle" fill="#868e96" font-size="9" font-style="italic">token pacing</text>
 
-  <!-- Connector Row 2 → Row 3 -->
-  <path d="M 60 178 Q 20 178 20 238 Q 20 298 60 298" fill="none" stroke="#868e96" stroke-width="1.5" marker-end="url(#a)"/>
+  <line x1="260" y1="178" x2="243" y2="178" stroke="#868e96" stroke-width="1.5" marker-end="url(#a)"/>
 
-  <!-- Row 3 (left to right) -->
-  <rect x="60" y="280" width="110" height="36" rx="5" fill="#4a9eff" stroke="#3b8de6"/>
-  <text x="115" y="303" text-anchor="middle" fill="#fff" font-size="12" font-weight="600">Synthesize</text>
-  <text x="115" y="330" text-anchor="middle" fill="#868e96" font-size="10" font-style="italic">5-stage, grounded</text>
+  <rect x="120" y="160" width="120" height="36" rx="5" fill="#e9ecef" stroke="#ced4da"/>
+  <text x="180" y="183" text-anchor="middle" fill="#495057" font-size="11" font-weight="600">Citation Chain</text>
+  <text x="180" y="210" text-anchor="middle" fill="#868e96" font-size="9" font-style="italic">BFS via S2</text>
 
-  <line x1="170" y1="298" x2="192" y2="298" stroke="#868e96" stroke-width="1.5" marker-end="url(#a)"/>
+  <line x1="120" y1="178" x2="103" y2="178" stroke="#868e96" stroke-width="1.5" marker-end="url(#a)"/>
 
-  <rect x="195" y="280" width="110" height="36" rx="5" fill="#ff6b6b" stroke="#fa5252"/>
-  <text x="250" y="303" text-anchor="middle" fill="#fff" font-size="12" font-weight="600">Critique</text>
-  <text x="250" y="330" text-anchor="middle" fill="#868e96" font-size="10" font-style="italic">3 parallel graders</text>
+  <rect x="10" y="160" width="90" height="36" rx="5" fill="#e9ecef" stroke="#ced4da"/>
+  <text x="55" y="183" text-anchor="middle" fill="#495057" font-size="11" font-weight="600">Contradiction</text>
 
-  <line x1="305" y1="298" x2="327" y2="298" stroke="#868e96" stroke-width="1.5" marker-end="url(#a)"/>
+  <!-- Reactive follow-up loop from Gap Analysis -->
+  <path d="M 470 196 L 470 240 Q 470 250 480 250 L 680 250 Q 690 250 690 240 L 690 196" fill="none" stroke="#9775fa" stroke-width="1.5" stroke-dasharray="5 3" marker-end="url(#c)"/>
+  <text x="580" y="264" text-anchor="middle" fill="#9775fa" font-size="9" font-weight="600">follow-up: search + extract + score merge</text>
 
-  <rect x="330" y="280" width="130" height="36" rx="5" fill="#e9ecef" stroke="#ced4da"/>
-  <text x="395" y="303" text-anchor="middle" fill="#495057" font-size="12" font-weight="600">Rollup Budget</text>
+  <!-- Connector Row 2 -> Row 3 -->
+  <path d="M 10 178 Q -20 178 -20 238 Q -20 310 10 310" fill="none" stroke="#868e96" stroke-width="1.5" marker-end="url(#a)"/>
 
-  <!-- Converge arrow -->
-  <line x1="460" y1="298" x2="530" y2="298" stroke="#868e96" stroke-width="1.5" marker-end="url(#a)"/>
-  <text x="495" y="291" text-anchor="middle" fill="#40c057" font-size="10" font-weight="700">converged</text>
+  <!-- Row 3 (left to right): Synthesize -> Critique -> Rollup Budget -> Report -> Gate -->
+  <rect x="10" y="292" width="100" height="36" rx="5" fill="#4a9eff" stroke="#3b8de6"/>
+  <text x="60" y="315" text-anchor="middle" fill="#fff" font-size="11" font-weight="600">Synthesize</text>
+  <text x="60" y="342" text-anchor="middle" fill="#868e96" font-size="9" font-style="italic">5-stage, grounded</text>
 
-  <rect x="533" y="280" width="110" height="36" rx="5" fill="#e9ecef" stroke="#ced4da"/>
-  <text x="588" y="303" text-anchor="middle" fill="#495057" font-size="12" font-weight="600">Report</text>
+  <line x1="110" y1="310" x2="127" y2="310" stroke="#868e96" stroke-width="1.5" marker-end="url(#a)"/>
 
-  <line x1="643" y1="298" x2="665" y2="298" stroke="#868e96" stroke-width="1.5" marker-end="url(#a)"/>
+  <rect x="130" y="292" width="100" height="36" rx="5" fill="#ff6b6b" stroke="#fa5252"/>
+  <text x="180" y="315" text-anchor="middle" fill="#fff" font-size="11" font-weight="600">Critique</text>
+  <text x="180" y="342" text-anchor="middle" fill="#868e96" font-size="9" font-style="italic">3 parallel graders</text>
 
-  <rect x="668" y="282" width="80" height="32" rx="5" fill="none" stroke="#adb5bd" stroke-dasharray="5 3"/>
-  <text x="708" y="302" text-anchor="middle" fill="#adb5bd" font-size="11">Gate</text>
+  <line x1="230" y1="310" x2="247" y2="310" stroke="#868e96" stroke-width="1.5" marker-end="url(#a)"/>
+
+  <rect x="250" y="292" width="120" height="36" rx="5" fill="#e9ecef" stroke="#ced4da"/>
+  <text x="310" y="315" text-anchor="middle" fill="#495057" font-size="11" font-weight="600">Rollup Budget</text>
+
+  <line x1="370" y1="310" x2="432" y2="310" stroke="#868e96" stroke-width="1.5" marker-end="url(#a)"/>
+  <text x="401" y="303" text-anchor="middle" fill="#40c057" font-size="9" font-weight="700">converged</text>
+
+  <rect x="435" y="292" width="100" height="36" rx="5" fill="#e9ecef" stroke="#ced4da"/>
+  <text x="485" y="315" text-anchor="middle" fill="#495057" font-size="11" font-weight="600">Report</text>
+
+  <line x1="535" y1="310" x2="552" y2="310" stroke="#868e96" stroke-width="1.5" marker-end="url(#a)"/>
+
+  <rect x="555" y="294" width="70" height="32" rx="5" fill="none" stroke="#adb5bd" stroke-dasharray="5 3"/>
+  <text x="590" y="314" text-anchor="middle" fill="#adb5bd" font-size="10">Gate</text>
 
   <!-- Loop-back arrow -->
-  <path d="M 395 316 L 395 370 Q 395 385 380 385 L 210 385 Q 195 385 195 370 L 195 82 Q 195 67 210 67" fill="none" stroke="#e03131" stroke-width="1.5" stroke-dasharray="6 3" marker-end="url(#b)"/>
-  <text x="300" y="400" text-anchor="middle" fill="#e03131" font-size="10" font-weight="600">not converged — re-plan</text>
+  <path d="M 310 328 L 310 380 Q 310 395 295 395 L 290 395 Q 275 395 275 380 L 275 82 Q 275 70 285 67" fill="none" stroke="#e03131" stroke-width="1.5" stroke-dasharray="6 3" marker-end="url(#b)"/>
+  <text x="380" y="408" text-anchor="middle" fill="#e03131" font-size="10" font-weight="600">not converged — re-plan</text>
 
   <!-- Legend -->
-  <g transform="translate(530, 380)">
-    <rect width="270" height="130" rx="8" fill="#f8f9fa" stroke="#dee2e6"/>
+  <g transform="translate(640, 292)">
+    <rect width="280" height="150" rx="8" fill="#f8f9fa" stroke="#dee2e6"/>
     <rect x="14" y="14" width="12" height="12" rx="2" fill="#4a9eff"/>
-    <text x="34" y="24" fill="#495057" font-size="11">Intelligence — Plan, Synthesize</text>
-    <rect x="14" y="34" width="12" height="12" rx="2" fill="#51cf66"/>
-    <text x="34" y="44" fill="#495057" font-size="11">Adaptive Overseer (V8)</text>
-    <rect x="14" y="54" width="12" height="12" rx="2" fill="#ff922b"/>
-    <text x="34" y="64" fill="#495057" font-size="11">Scoring &amp; Ranking</text>
-    <rect x="14" y="74" width="12" height="12" rx="2" fill="#ff6b6b"/>
-    <text x="34" y="84" fill="#495057" font-size="11">Quality Gates</text>
-    <rect x="14" y="94" width="12" height="12" rx="2" fill="none" stroke="#adb5bd" stroke-width="1.5" stroke-dasharray="4 3"/>
-    <text x="34" y="104" fill="#495057" font-size="11">HITL Only (--mode hitl)</text>
-    <text x="14" y="122" fill="#868e96" font-size="10">Opus: plan + synthesize | Sonnet: critique graders</text>
+    <text x="34" y="24" fill="#495057" font-size="10">Intelligence — Plan, Synthesize</text>
+    <rect x="14" y="34" width="12" height="12" rx="2" fill="#9775fa"/>
+    <text x="34" y="44" fill="#495057" font-size="10">V9 — Clarify, Gap Analysis</text>
+    <rect x="14" y="54" width="12" height="12" rx="2" fill="#51cf66"/>
+    <text x="34" y="64" fill="#495057" font-size="10">Adaptive Overseer</text>
+    <rect x="14" y="74" width="12" height="12" rx="2" fill="#ff922b"/>
+    <text x="34" y="84" fill="#495057" font-size="10">Scoring &amp; Ranking</text>
+    <rect x="14" y="94" width="12" height="12" rx="2" fill="#ff6b6b"/>
+    <text x="34" y="104" fill="#495057" font-size="10">Quality Gates</text>
+    <rect x="14" y="114" width="12" height="12" rx="2" fill="none" stroke="#adb5bd" stroke-width="1.5" stroke-dasharray="4 3"/>
+    <text x="34" y="124" fill="#495057" font-size="10">HITL Only (--mode hitl)</text>
+    <text x="14" y="142" fill="#868e96" font-size="9">Opus: plan + synthesize | Sonnet: critique graders</text>
   </g>
 
 </svg>

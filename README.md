@@ -10,8 +10,8 @@
   <a href="https://github.com/Darv0n/deep-research-swarm/actions/workflows/ci.yml"><img src="https://img.shields.io/badge/CI-passing-brightgreen?logo=github" alt="CI: passing"></a>
   <img src="https://img.shields.io/badge/python-3.11%2B-blue?logo=python&logoColor=white" alt="Python 3.11+">
   <img src="https://img.shields.io/badge/license-MIT-green" alt="License: MIT">
-  <img src="https://img.shields.io/badge/tests-710%20passing-brightgreen?logo=pytest&logoColor=white" alt="Tests: 710 passing">
-  <img src="https://img.shields.io/badge/version-0.8.0-blue" alt="Version: 0.8.0">
+  <img src="https://img.shields.io/badge/tests-757%20passing-brightgreen?logo=pytest&logoColor=white" alt="Tests: 757 passing">
+  <img src="https://img.shields.io/badge/version-0.9.0-blue" alt="Version: 0.9.0">
   <img src="https://img.shields.io/badge/backends-6%20search%20engines-purple" alt="Backends: 6">
 </p>
 
@@ -31,7 +31,7 @@
 
 ---
 
-Takes a research question, decomposes it via STORM-style perspective-guided questioning, dispatches parallel search agents across 6 backends (including scholarly APIs and web archives), synthesizes findings through outline-first grounded synthesis with passage-level verification, critiques through a three-grader chain, and iterates until convergence. Produces structured Markdown reports with passage-level citations, confidence heat maps, provenance tracking, and gap analysis.
+Takes a research question, analyzes scope, decomposes it into 10-15 targeted queries via STORM-style perspective-guided questioning, dispatches parallel search agents across 6 backends (including scholarly APIs and web archives), reactively identifies and fills knowledge gaps mid-pipeline, synthesizes findings through outline-first grounded synthesis with passage-level verification, critiques through a three-grader chain, and iterates until convergence. Produces structured reports (Markdown, DOCX, PDF) with passage-level citations, confidence heat maps, provenance tracking, and gap analysis.
 
 ## Quick Start
 
@@ -60,12 +60,18 @@ python -m deep_research_swarm "What is quantum entanglement?"
 
 ## Features
 
+- **Pre-research clarification** — Heuristic scope analysis (auto) or LLM-powered clarifying questions (HITL) before research begins
+- **High query volume** — 10-15 queries per iteration via 5 perspectives x 2-3 queries each (tunables: `perspectives_count`, `target_queries`)
+- **Reactive search** — Within-iteration gap analysis: examines scored documents, identifies missing coverage, triggers follow-up searches automatically
 - **Multi-backend search** — SearXNG, Exa, Tavily, OpenAlex, Semantic Scholar, Wayback Machine
 - **Scholarly research** — OpenAlex (250M+ works), Semantic Scholar citation chaining (BFS graph traversal)
-- **Adaptive overseer** — Deterministic control loop that scales 15 tunables mid-run based on pipeline metrics
+- **Adaptive overseer** — Deterministic control loop that scales 18 tunables mid-run based on pipeline metrics
 - **Grounded synthesis** — Passage-level mechanical verification (Jaccard + embedding + neighborhood methods)
+- **Deep reports** — 400-800 words per section with rich intro, transitions, and conclusion. Export as Markdown, DOCX, or PDF
 - **Three-grader critique** — Parallel evaluation: relevance, hallucination, quality (Sonnet, 5x cost reduction)
 - **Multi-iteration convergence** — Re-plans to address gaps and weak sections until quality thresholds met
+- **Follow-up questions** — `--follow-up THREAD_ID "question"` to iteratively refine research from previous runs
+- **Rich streaming** — Intermediate findings, grounding scores, and contradiction counts streamed during pipeline execution
 - **Human-in-the-loop** — Plan and report gates via LangGraph `interrupt()` (`--mode hitl`)
 - **Checkpoint resume** — SQLite or PostgreSQL persistence, `--resume` to continue interrupted runs
 - **Cross-session memory** — JSON-backed Jaccard search, MCP export, research context across runs
@@ -86,14 +92,20 @@ python -m deep_research_swarm "What is quantum entanglement?"
 
 ```mermaid
 flowchart LR
-    HC[Health Check] --> P[Plan]
+    HC[Health Check] --> CL[Clarify]
+    CL --> P[Plan]
     P --> PG{Plan Gate}
     PG --> S[Search]
     S --> AE[Adapt Extraction]
     AE --> E[Extract]
     E --> CH[Chunk Passages]
     CH --> SC[Score]
-    SC --> AS[Adapt Synthesis]
+    SC --> GA[Gap Analysis]
+    GA -->|Gaps found| SF[Search Follow-up]
+    SF --> EF[Extract Follow-up]
+    EF --> SM[Score Merge]
+    SM --> AS[Adapt Synthesis]
+    GA -->|No gaps| AS[Adapt Synthesis]
     AS --> CC[Citation Chain]
     CC --> CD[Contradiction]
     CD --> SY[Synthesize]
@@ -105,10 +117,13 @@ flowchart LR
 ```
 
 ```
-health_check → plan → [plan_gate] → search → adapt_extraction → extract → chunk_passages
-→ score → adapt_synthesis → citation_chain → contradiction → synthesize → critique
-→ rollup_budget → [converge?] → report → [report_gate]
+health_check → clarify → plan → [plan_gate] → search → adapt_extraction → extract
+→ chunk_passages → score → gap_analysis → [follow_up?] → adapt_synthesis
+→ citation_chain → contradiction → synthesize → critique → rollup_budget
+→ [converge?] → report → [report_gate]
 ```
+
+V9 reactive loop: `gap_analysis` can conditionally trigger `search_followup → extract_followup → score_merge` before continuing to `adapt_synthesis`.
 
 </details>
 
@@ -117,20 +132,23 @@ health_check → plan → [plan_gate] → search → adapt_extraction → extrac
 
 Given a research question, the system:
 
-1. **Decomposes** the question into 3+ sub-queries from diverse perspectives (STORM method)
-2. **Routes** each sub-query to appropriate backends based on query type (academic, technical, archival, general)
-3. **Searches** each sub-query in parallel across configured backends
-4. **Adapts extraction** — overseer scales extraction cap (15-100) and results per query based on search volume
-5. **Extracts** clean content from result URLs via a 6-tier cascade (with Wayback fallback for 404s)
-6. **Chunks** extracted documents into source passages with deterministic content-hash IDs
-7. **Scores** documents using Reciprocal Rank Fusion + enhanced authority classification
-8. **Adapts synthesis** — overseer scales citation budget, section count, and refinement attempts based on corpus size and token spend rate
-9. **Chains** citations via BFS traversal of the Semantic Scholar citation graph
-10. **Detects** contradictions between sources
-11. **Synthesizes** via outline-first pipeline: generate outline, draft sections in parallel with passage-narrowed context, mechanically verify grounding, refine failed sections, compose report
-12. **Critiques** each section across three dimensions: relevance, hallucination, quality
-13. **Iterates** if quality is insufficient — re-plans to address gaps and weak sections
-14. **Renders** a final Markdown report with provenance, bibliography, confidence heat map, and gap analysis
+1. **Clarifies** scope — heuristic analysis infers breadth, depth, recency, and domain (auto mode) or asks targeted clarifying questions (HITL mode)
+2. **Decomposes** the question into 10-15 sub-queries from 5 diverse perspectives (STORM method, tunable)
+3. **Routes** each sub-query to appropriate backends based on query type (academic, technical, archival, general)
+4. **Searches** each sub-query in parallel across configured backends
+5. **Adapts extraction** — overseer scales extraction cap (15-150) and results per query based on search volume
+6. **Extracts** clean content from result URLs via a 6-tier cascade (with Wayback fallback for 404s), URLs prioritized by combined score
+7. **Chunks** extracted documents into source passages with deterministic content-hash IDs
+8. **Scores** documents using Reciprocal Rank Fusion + enhanced authority classification
+9. **Analyzes gaps** — examines scored documents for missing coverage, generates targeted follow-up queries
+10. **Follows up** — if gaps found, triggers reactive search/extract/score cycle within the same iteration
+11. **Adapts synthesis** — overseer scales citation budget, section count, and refinement attempts based on corpus size and token spend rate
+12. **Chains** citations via BFS traversal of the Semantic Scholar citation graph
+13. **Detects** contradictions between sources
+14. **Synthesizes** via outline-first pipeline: generate outline, draft sections in parallel with passage-narrowed context, mechanically verify grounding, refine failed sections, compose report
+15. **Critiques** each section across three dimensions: relevance, hallucination, quality
+16. **Iterates** if quality is insufficient — re-plans to address gaps and weak sections
+17. **Renders** a final report (Markdown, DOCX, or PDF) with provenance, bibliography, confidence heat map, and gap analysis
 
 </details>
 
@@ -139,7 +157,7 @@ Given a research question, the system:
 
 ### Planner
 
-STORM-style decomposition: identifies 3 diverse perspectives on the question, then generates 1-2 specific search queries per perspective. On re-iterations, receives previous queries and identified gaps — generates new queries that address gaps without repeating prior searches. Programmatic deduplication via Jaccard similarity (threshold 0.7) + substring containment prevents redundant queries.
+STORM-style decomposition: identifies 5 diverse perspectives on the question (tunable), then generates 2-3 specific search queries per perspective for 10-15 total queries per iteration (tunable). Incorporates scope hints from the clarifier to focus query generation. On re-iterations, receives previous queries and identified gaps — generates new queries that address gaps without repeating prior searches. Programmatic deduplication via Jaccard similarity (threshold 0.7) + substring containment prevents redundant queries.
 
 ### Searcher
 
@@ -158,7 +176,7 @@ Extracts clean content from result URLs using a six-tier cascade:
 | 5 | Trafilatura | Static HTML (fallback) |
 | 6 | Wayback Machine | Dead links, 404 recovery |
 
-Extraction cap scaled dynamically by the adaptive overseer (15-100 URLs per iteration).
+Extraction cap scaled dynamically by the adaptive overseer (15-150 URLs per iteration). URLs prioritized by combined score before capping.
 
 ### Scorer
 
@@ -295,6 +313,8 @@ usage: deep-research-swarm [-h] [--max-iterations N] [--token-budget N]
                            [--no-adaptive] [--complexity]
                            [--export-prov-o PATH] [--embedding-model MODEL]
                            [--grobid-url URL]
+                           [--format {md,docx,pdf}]
+                           [--follow-up THREAD_ID QUESTION]
                            [question]
 ```
 
@@ -334,6 +354,15 @@ python -m deep_research_swarm --complexity "Bobbin lace engineering techniques"
 
 # Export PROV-O provenance as JSON-LD
 python -m deep_research_swarm --export-prov-o provenance.jsonld "Quantum entanglement"
+
+# Export as DOCX (requires pandoc)
+python -m deep_research_swarm --format docx "State of AI governance in 2026"
+
+# Export as PDF
+python -m deep_research_swarm --format pdf --output report.pdf "Fusion energy progress"
+
+# Ask a follow-up question on a previous research thread
+python -m deep_research_swarm --follow-up research-20260224-120000-1234 "What about safety concerns?"
 
 # List previous research threads
 python -m deep_research_swarm --list-threads
@@ -422,7 +451,7 @@ deep-research-swarm/
 │   │   └── builder.py           # StateGraph construction + edge wiring
 │   │
 │   ├── adaptive/                # V8: Adaptive overseer
-│   │   ├── registry.py          # TunableRegistry (15 bounded tunables)
+│   │   ├── registry.py          # TunableRegistry (18 bounded tunables)
 │   │   ├── complexity.py        # Complexity analyzer (multiplier 0.5-2.0)
 │   │   ├── adapt_extraction.py  # Post-search threshold adjustment
 │   │   └── adapt_synthesis.py   # Post-score threshold adjustment
@@ -433,6 +462,8 @@ deep-research-swarm/
 │   │   ├── searcher.py          # Parallel search dispatch
 │   │   ├── extractor.py         # Content extraction coordinator
 │   │   ├── synthesizer.py       # Outline-first grounded synthesis (5-stage)
+│   │   ├── clarifier.py         # V9: Pre-research scope analysis
+│   │   ├── gap_analyzer.py      # V9: Reactive search gap detection
 │   │   ├── citation_chain.py    # BFS citation graph traversal via S2
 │   │   ├── contradiction.py     # Sonnet-powered contradiction detection
 │   │   └── critic.py            # Three-grader chain + convergence
@@ -475,7 +506,8 @@ deep-research-swarm/
 │   │   ├── evidence_map.py      # Claim-to-source mapping table
 │   │   ├── provenance.py        # Provenance section rendering
 │   │   ├── prov_o.py            # V8: PROV-O JSON-LD export
-│   │   └── adaptive_section.py  # V8: Adaptive adjustments section
+│   │   ├── adaptive_section.py  # V8: Adaptive adjustments section
+│   │   └── export.py            # V9: Multi-format export (DOCX/PDF via pandoc)
 │   │
 │   ├── memory/
 │   │   ├── store.py             # JSON-backed cross-session memory
@@ -491,7 +523,7 @@ deep-research-swarm/
 │   │
 │   └── streaming.py             # StreamDisplay for astream progress
 │
-├── tests/                       # 710+ tests across 45+ modules
+├── tests/                       # 757+ tests across 50+ modules
 ├── docker/                      # SearXNG Docker configuration
 ├── output/                      # Generated reports (gitignored)
 ├── checkpoints/                 # SQLite checkpoint DB (gitignored)
@@ -518,7 +550,7 @@ pytest tests/ --cov=deep_research_swarm --cov-report=term-missing
 pytest tests/test_rrf.py -v
 ```
 
-**710+ tests** covering:
+**757+ tests** covering:
 
 | Module | Tests | Coverage |
 |--------|:-----:|----------|
@@ -570,6 +602,11 @@ pytest tests/test_rrf.py -v
 | Incremental | 15 | Content diff, unchanged filtering, summaries |
 | PROV-O | 11 | JSON-LD structure, entities, activities |
 | Adaptive section | 9 | Complexity rendering, tunable table |
+| Clarifier | 14 | Scope heuristic, auto/HITL mode, graph wiring |
+| Gap analyzer | 11 | Gap detection, follow-up queries, dedup, budget |
+| Multi-format export | 10 | Pandoc detection, DOCX/PDF conversion, CLI flags |
+| Rich streaming | 7 | Plan summary, findings preview, contradiction summary |
+| Follow-up questions | 4 | CLI parsing, thread loading, context building |
 | Integration | 1 | Mocked LLM planner e2e |
 
 All tests run without network access, API keys, or Docker — LLM calls are mocked.
@@ -622,7 +659,8 @@ No inheritance required — the Protocol uses structural subtyping (PEP 544).
 - [x] **V6** — Forensic mode: human-in-the-loop gates, run event log, evidence map
 - [x] **V7** — Niche retrieval: scholarly backends, Wayback archive, citation chaining, passage chunking, grounded synthesis, provenance
 - [x] **V8** — Adaptive intelligence: deterministic overseer, second-pass grounding, embedding grounding, claim graph, OCR/GROBID, PROV-O export
-- [ ] **V9** — Planned: internal hybrid index (OpenSearch k-NN), focused crawling, embedding routing, MCP server, memory pruning
+- [x] **V9** — Competitive parity: pre-research clarification, reactive search loop, 3x query volume, deeper reports, multi-format export, rich streaming, follow-up questions
+- [ ] **V10** — Planned: internal hybrid index (OpenSearch k-NN), focused crawling, embedding routing, MCP server, code execution, memory pruning
 
 ## License
 

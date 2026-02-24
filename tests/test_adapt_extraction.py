@@ -35,7 +35,7 @@ class TestAdaptExtractionNode:
         }
         result = adapt_extraction_node(state)
         snap = result["tunable_snapshot"]
-        assert snap["extraction_cap"] > 30  # default is 30
+        assert snap["extraction_cap"] > 50  # V9 default is 50
 
     def test_low_volume_scales_extraction_cap_down(self):
         state = {
@@ -43,7 +43,7 @@ class TestAdaptExtractionNode:
         }
         result = adapt_extraction_node(state)
         snap = result["tunable_snapshot"]
-        assert snap["extraction_cap"] <= 30
+        assert snap["extraction_cap"] <= 50  # V9 default is 50
 
     def test_high_volume_scales_results_per_query(self):
         state = {
@@ -51,7 +51,7 @@ class TestAdaptExtractionNode:
         }
         result = adapt_extraction_node(state)
         snap = result["tunable_snapshot"]
-        assert snap["results_per_query"] >= 10
+        assert snap["results_per_query"] >= 15  # V9 default is 15
 
     def test_events_have_correct_trigger(self):
         state = {
@@ -81,10 +81,10 @@ class TestAdaptExtractionNode:
         result = adapt_extraction_node(state)
         # With 0 results, multiplier is low — cap should scale down from 75
         snap = result["tunable_snapshot"]
-        # The key test: we didn't reset to default 30
-        # With multiplier 0.5, it would try 30*0.5=15 (from default),
+        # The key test: we didn't reset to default 50
+        # With multiplier 0.5, it would try 50*0.5=25 (from default),
         # since set_scaled uses default, not current value
-        assert snap["extraction_cap"] == 15
+        assert snap["extraction_cap"] == 25
 
     def test_complexity_profile_in_output(self):
         state = {

@@ -511,9 +511,11 @@ class TestGraphWiring:
         for edge in g.edges:
             edges.add((edge.source, edge.target))
 
-        assert ("score", "adapt_synthesis") in edges
+        # V9: score -> gap_analysis -> [conditional] -> adapt_synthesis -> citation_chain
+        assert ("score", "gap_analysis") in edges
         assert ("adapt_synthesis", "citation_chain") in edges
         assert ("citation_chain", "contradiction") in edges
         # Old direct edges should not exist
         assert ("score", "contradiction") not in edges
         assert ("score", "citation_chain") not in edges
+        assert ("score", "adapt_synthesis") not in edges  # V9: gap_analysis is now between

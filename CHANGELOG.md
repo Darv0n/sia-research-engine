@@ -4,6 +4,31 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.9.0] - 2026-02-23
+
+### Added
+- **Pre-research clarification** (`agents/clarifier.py`): Heuristic scope analysis (auto mode, no LLM) or LLM-powered clarifying questions (HITL mode). Infers breadth, depth, recency, domain from question structure. Wired between health_check and plan.
+- **Reactive search loop** (`agents/gap_analyzer.py`): Within-iteration gap analysis examines scored documents, identifies knowledge gaps, generates follow-up queries. Conditional edge triggers `search_followup -> extract_followup -> score_merge` before continuing to synthesis.
+- **Query volume increase**: 5 perspectives x 2-3 queries = 10-15 queries/iteration (up from 3 x 1-2 = 3-9). New tunables: `perspectives_count` (default 5), `target_queries` (default 12).
+- **Source volume increase**: `extraction_cap` default 50 (up from 30, ceiling 150), `results_per_query` default 15 (up from 10). URL prioritization by combined score before capping.
+- **Report depth increase**: Section target 400-800 words (up from 200-500), richer intro (3-5 sentences), transitions (2-3 sentences), conclusion (4-6 sentences). `max_sections` default 8 (ceiling 15), `max_passages_per_section` default 10.
+- **Multi-format export** (`reporting/export.py`): `--format docx|pdf` via pandoc subprocess. Graceful fallback when pandoc unavailable. PDF engine auto-detection (xelatex/pdflatex/wkhtmltopdf).
+- **Plan transparency**: Research plan streamed in all modes (not just HITL). `plan_summary` event with perspectives and queries emitted via stream writer.
+- **Rich streaming**: Intermediate `findings_preview` (top 5 sources after scoring), `contradiction_summary` (counts after contradiction detection) events. New `StreamDisplay` handlers for all custom events.
+- **Follow-up questions**: `--follow-up THREAD_ID "question"` loads previous research context from checkpoint, builds context from prior section drafts, runs new focused research thread.
+- New tunables: `perspectives_count`, `target_queries`, `follow_up_budget` (18 total, up from 15)
+- New state fields: `follow_up_queries` (accumulating), `follow_up_round` (replace), `scope_hints` (replace)
+- New graph nodes: `clarify`, `gap_analysis`, `search_followup`, `extract_followup`, `score_merge`
+- CLI flags: `--format md|docx|pdf`, `--follow-up THREAD_ID QUESTION`
+- 47 new tests (757+ total)
+
+### Changed
+- Graph topology: `health_check -> clarify -> plan` (was health_check -> plan directly), `score -> gap_analysis -> [conditional] -> adapt_synthesis` (was score -> adapt_synthesis directly)
+- Planner system prompt uses `{perspectives_count}` and `{target_queries}` template variables, reads from tunable_snapshot
+- Planner incorporates scope_hints from clarifier into query decomposition
+- Synthesizer prompts encourage deeper analysis with specific data points, comparisons, and contextual analysis
+- `max_tokens` for planner LLM call increased 2048 -> 4096 to accommodate larger plans
+
 ## [0.8.0] - 2026-02-23
 
 ### Added

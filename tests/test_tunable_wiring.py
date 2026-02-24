@@ -156,6 +156,22 @@ class TestBuilderTunableWiring:
         assert "contradiction_max_docs" in source
 
 
+# --- Planner: reads tunables from state (V9) ---
+
+
+class TestPlannerTunableWiring:
+    def test_planner_reads_tunable_snapshot(self):
+        """Planner source code references tunable_snapshot."""
+        import inspect
+
+        from deep_research_swarm.agents.planner import plan
+
+        source = inspect.getsource(plan)
+        assert "tunable_snapshot" in source
+        assert "perspectives_count" in source
+        assert "target_queries" in source
+
+
 # --- Backward Compat: empty tunable_snapshot uses defaults ---
 
 
@@ -165,8 +181,8 @@ class TestBackwardCompatibility:
         from deep_research_swarm.adaptive.registry import TunableRegistry
 
         r = TunableRegistry.from_snapshot({})
-        assert r.get("extraction_cap") == 30
-        assert r.get("results_per_query") == 10
+        assert r.get("extraction_cap") == 50  # V9 default
+        assert r.get("results_per_query") == 15  # V9 default
         assert r.get("contradiction_max_docs") == 10
         assert r.get("jaccard_threshold") == 0.3
         assert r.get("grounding_pass_threshold") == 0.8
@@ -178,5 +194,5 @@ class TestBackwardCompatibility:
         """state.get("tunable_snapshot", {}).get("name", DEFAULT) pattern."""
         state: dict = {}
         snap = state.get("tunable_snapshot", {})
-        assert snap.get("extraction_cap", 30) == 30
-        assert snap.get("results_per_query", 10) == 10
+        assert snap.get("extraction_cap", 50) == 50  # V9 default
+        assert snap.get("results_per_query", 15) == 15  # V9 default

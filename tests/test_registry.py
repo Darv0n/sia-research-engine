@@ -58,6 +58,9 @@ class TestRegistryConstruction:
             "citation_chain_max_hops",
             "citation_chain_top_seeds",
             "results_per_query",
+            "perspectives_count",  # V9
+            "target_queries",  # V9
+            "follow_up_budget",  # V9
             "min_sections",
             "max_sections",
             "max_docs_for_outline",
@@ -65,27 +68,27 @@ class TestRegistryConstruction:
         for name in expected:
             assert name in r, f"{name} not in registry"
 
-    def test_default_values_match_v7_hardcodes(self):
+    def test_default_values_match_v9_defaults(self):
         r = TunableRegistry()
-        assert r.get("extraction_cap") == 30
+        assert r.get("extraction_cap") == 50  # V9: raised from 30
         assert r.get("content_truncation_chars") == 50000
         assert r.get("contradiction_max_docs") == 10
         assert r.get("jaccard_threshold") == 0.3
         assert r.get("grounding_pass_threshold") == 0.8
         assert r.get("max_refinement_attempts") == 2
-        assert r.get("max_passages_per_section") == 8
+        assert r.get("max_passages_per_section") == 10  # V9: raised from 8
         assert r.get("citation_chain_budget") == 50
         assert r.get("citation_chain_max_hops") == 2
         assert r.get("citation_chain_top_seeds") == 5
-        assert r.get("results_per_query") == 10
+        assert r.get("results_per_query") == 15  # V9: raised from 10
         assert r.get("budget_exhaustion_pct") == 0.9
         assert r.get("min_sections") == 3
-        assert r.get("max_sections") == 7
+        assert r.get("max_sections") == 8  # V9: raised from 7
         assert r.get("max_docs_for_outline") == 20
 
     def test_len(self):
         r = TunableRegistry()
-        assert len(r) == 15
+        assert len(r) == 18  # V9: +perspectives_count, target_queries, follow_up_budget
 
     def test_contains(self):
         r = TunableRegistry()
@@ -99,7 +102,7 @@ class TestRegistryConstruction:
 class TestGetSet:
     def test_get_known_tunable(self):
         r = TunableRegistry()
-        assert r.get("extraction_cap") == 30
+        assert r.get("extraction_cap") == 50  # V9 default
 
     def test_get_unknown_raises_keyerror(self):
         r = TunableRegistry()
@@ -121,8 +124,8 @@ class TestGetSet:
     def test_set_clamps_above_ceiling(self):
         r = TunableRegistry()
         result = r.set("extraction_cap", 500)
-        assert result == 100  # ceiling
-        assert r.get("extraction_cap") == 100
+        assert result == 150  # V9 ceiling
+        assert r.get("extraction_cap") == 150
 
     def test_set_unknown_raises_keyerror(self):
         r = TunableRegistry()
@@ -153,23 +156,23 @@ class TestSetScaled:
     def test_scale_up(self):
         r = TunableRegistry()
         result = r.set_scaled("extraction_cap", 2.0)
-        assert result == 60  # 30 * 2.0
+        assert result == 100  # 50 * 2.0
 
     def test_scale_down(self):
         r = TunableRegistry()
         result = r.set_scaled("extraction_cap", 0.5)
-        assert result == 15  # 30 * 0.5 = 15 (at floor)
+        assert result == 25  # 50 * 0.5
 
     def test_scale_clamps_ceiling(self):
         r = TunableRegistry()
         result = r.set_scaled("extraction_cap", 5.0)
-        assert result == 100  # 30 * 5.0 = 150, clamped to 100
+        assert result == 150  # 50 * 5.0 = 250, clamped to 150
 
     def test_scale_preserves_int(self):
         r = TunableRegistry()
         result = r.set_scaled("extraction_cap", 1.5)
         assert isinstance(result, int)
-        assert result == 45  # round(30 * 1.5)
+        assert result == 75  # round(50 * 1.5)
 
     def test_scale_float_tunable(self):
         r = TunableRegistry()
@@ -183,21 +186,21 @@ class TestSetScaled:
 class TestMetadata:
     def test_get_default(self):
         r = TunableRegistry()
-        assert r.get_default("extraction_cap") == 30
+        assert r.get_default("extraction_cap") == 50  # V9 default
 
     def test_get_default_unchanged_by_set(self):
         r = TunableRegistry()
         r.set("extraction_cap", 75)
-        assert r.get_default("extraction_cap") == 30
+        assert r.get_default("extraction_cap") == 50  # V9 default
         assert r.get("extraction_cap") == 75
 
     def test_get_definition(self):
         r = TunableRegistry()
         defn = r.get_definition("extraction_cap")
         assert defn["name"] == "extraction_cap"
-        assert defn["default"] == 30
+        assert defn["default"] == 50  # V9 default
         assert defn["floor"] == 15
-        assert defn["ceiling"] == 100
+        assert defn["ceiling"] == 150  # V9 ceiling
         assert defn["category"] == "extraction"
 
 
@@ -237,7 +240,7 @@ class TestSnapshot:
     def test_from_snapshot_clamps_values(self):
         """Values in snapshot beyond bounds get clamped."""
         r2 = TunableRegistry.from_snapshot({"extraction_cap": 999})
-        assert r2.get("extraction_cap") == 100  # ceiling
+        assert r2.get("extraction_cap") == 150  # V9 ceiling
 
 
 # --- categories / names ---
@@ -246,7 +249,7 @@ class TestSnapshot:
 class TestCategoriesAndNames:
     def test_names_returns_all(self):
         r = TunableRegistry()
-        assert len(r.names()) == 15
+        assert len(r.names()) == 18  # V9: +perspectives_count, target_queries, follow_up_budget
 
     def test_categories_groups_correctly(self):
         r = TunableRegistry()
@@ -256,7 +259,9 @@ class TestCategoriesAndNames:
         assert "grounding" in cats
         assert "search" in cats
         assert "synthesis" in cats
+        assert "planning" in cats  # V9
         assert "extraction_cap" in cats["extraction"]
+        assert "perspectives_count" in cats["planning"]  # V9
 
     def test_all_tunables_in_some_category(self):
         r = TunableRegistry()
@@ -280,7 +285,7 @@ class TestDiffFromDefaults:
         r.set("extraction_cap", 75)
         diff = r.diff_from_defaults()
         assert "extraction_cap" in diff
-        assert diff["extraction_cap"]["default"] == 30
+        assert diff["extraction_cap"]["default"] == 50  # V9 default
         assert diff["extraction_cap"]["current"] == 75
         assert diff["extraction_cap"]["category"] == "extraction"
 

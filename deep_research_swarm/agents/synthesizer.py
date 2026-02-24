@@ -91,7 +91,10 @@ Rules:
 - If a passage doesn't support a claim, do NOT cite it for that claim.
 - If you cannot support a claim from given passages: write "[insufficient evidence]".
   Do NOT fabricate or extrapolate.
-- Write in clear professional prose. 200-500 words.
+- Write in clear professional prose. Target 400-800 words per section.
+- Include analysis and interpretation, not just summary. Explain WHY findings matter.
+- Compare and contrast different sources where they offer different perspectives.
+- Include specific data points, statistics, or examples from the passages.
 
 Output STRICT JSON (no markdown, no commentary):
 {{
@@ -128,9 +131,12 @@ COMPOSE_SYSTEM = """\
 You are composing a complete research report from pre-verified sections.
 
 Your job:
-1. Write a 2-3 sentence introduction framing the research question.
-2. Add a 1-2 sentence transition between each pair of sections.
-3. Write a 2-3 sentence conclusion synthesizing key findings.
+1. Write a 3-5 sentence introduction that frames the research question, explains why \
+it matters, and previews the key findings.
+2. Add a 2-3 sentence transition between each pair of sections that explains how \
+the topics connect.
+3. Write a 4-6 sentence conclusion that synthesizes key findings across ALL sections, \
+identifies the strongest evidence, and notes remaining open questions.
 4. Do NOT modify section content. Do NOT add new claims or citations.
 
 The sections have been individually verified for source grounding.

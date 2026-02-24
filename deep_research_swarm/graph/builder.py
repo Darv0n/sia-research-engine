@@ -17,9 +17,11 @@ from deep_research_swarm.adaptive.adapt_extraction import adapt_extraction_node
 from deep_research_swarm.adaptive.adapt_synthesis import adapt_synthesis_node
 from deep_research_swarm.agents.base import AgentCaller
 from deep_research_swarm.agents.citation_chain import citation_chain
+from deep_research_swarm.agents.clarifier import clarify
 from deep_research_swarm.agents.contradiction import detect_contradictions
 from deep_research_swarm.agents.critic import critique
 from deep_research_swarm.agents.extractor import extract_content
+from deep_research_swarm.agents.gap_analyzer import analyze_gaps
 from deep_research_swarm.agents.planner import plan
 from deep_research_swarm.agents.searcher import search_sub_query
 from deep_research_swarm.agents.synthesizer import synthesize
@@ -202,8 +204,36 @@ def build_graph(
 
         return {"search_backends": healthy}
 
-    async def plan_node(state: ResearchState) -> dict:
-        return await plan(state, opus_caller, available_backends=settings.available_backends())
+    async def clarify_node(state: ResearchState) -> dict:
+        """V9: Pre-research scope analysis (G5). Auto mode = heuristic, no LLM."""
+        resolved_mode = mode
+        return await clarify(
+            state,
+            sonnet_caller if resolved_mode == "hitl" else None,
+            mode=resolved_mode,
+        )
+
+    async def plan_node(state: ResearchState, config: RunnableConfig | None = None) -> dict:
+        result = await plan(state, opus_caller, available_backends=settings.available_backends())
+
+        # V9: Reset follow-up round for new iteration
+        result["follow_up_round"] = 0
+
+        # V9: Stream plan in all modes for transparency (G6)
+        writer = _get_stream_writer(config)
+        if writer:
+            perspectives = result.get("perspectives", [])
+            sub_queries = result.get("sub_queries", [])
+            writer(
+                {
+                    "kind": "plan_summary",
+                    "perspectives": perspectives,
+                    "queries": [sq["question"] for sq in sub_queries],
+                    "iteration": result.get("current_iteration", 1),
+                }
+            )
+
+        return result
 
     async def search_node(state: ResearchState, config: RunnableConfig | None = None) -> dict:
         """Fan-out: search all sub-queries from the current iteration in parallel."""
@@ -273,9 +303,12 @@ def build_graph(
                 seen_urls.add(sr["url"])
                 unique_results.append(sr)
 
-        # Read adaptive tunables (V8) — fall back to V7 defaults
+        # V9: Prioritize URLs by score before capping (G3 — source volume)
+        unique_results.sort(key=lambda r: r.get("score", 0.0), reverse=True)
+
+        # Read adaptive tunables (V8) — fall back to V9 defaults
         _snap = state.get("tunable_snapshot", {})
-        extraction_cap = int(_snap.get("extraction_cap", 30))
+        extraction_cap = int(_snap.get("extraction_cap", 50))
         content_trunc = int(_snap.get("content_truncation_chars", 50000))
 
         capped = unique_results[:extraction_cap]
@@ -339,7 +372,7 @@ def build_graph(
         passages = chunk_all_documents(extracted_contents, scored_documents)
         return {"source_passages": passages}
 
-    async def score_node(state: ResearchState) -> dict:
+    async def score_node(state: ResearchState, config: RunnableConfig | None = None) -> dict:
         """Score and rank all documents using RRF + authority, compute diversity."""
         search_results = state.get("search_results", [])
         extracted_contents = state.get("extracted_contents", [])
@@ -353,13 +386,174 @@ def build_graph(
 
         diversity = compute_diversity(scored)
 
+        # V9: Rich streaming — emit top sources preview
+        writer = _get_stream_writer(config)
+        if writer and scored:
+            top = sorted(scored, key=lambda d: d["combined_score"], reverse=True)[:5]
+            writer(
+                {
+                    "kind": "findings_preview",
+                    "top_sources": [f"{d['title']} ({d['url']})" for d in top],
+                }
+            )
+
         return {"scored_documents": scored, "diversity_metrics": diversity}
+
+    async def gap_analysis_node(state: ResearchState) -> dict:
+        """V9: Analyze scored docs to identify knowledge gaps and generate follow-ups."""
+        return await analyze_gaps(
+            state, sonnet_caller, available_backends=settings.available_backends()
+        )
+
+    async def search_followup_node(
+        state: ResearchState,
+        config: RunnableConfig | None = None,
+    ) -> dict:
+        """V9: Execute follow-up queries identified by gap analysis."""
+        writer = _get_stream_writer(config)
+        follow_up_queries = state.get("follow_up_queries", [])
+        if not follow_up_queries:
+            return {"search_results": []}
+
+        # Only take queries from the latest gap_analysis round
+        # (follow_up_queries accumulates, but we only want the unfetched ones)
+        import deep_research_swarm.backends.searxng  # noqa: F401
+
+        if settings.exa_api_key:
+            import deep_research_swarm.backends.exa  # noqa: F401
+        if settings.tavily_api_key:
+            import deep_research_swarm.backends.tavily  # noqa: F401
+
+        if writer:
+            writer(
+                {
+                    "kind": "search_progress",
+                    "message": f"follow-up: {len(follow_up_queries)} queries",
+                }
+            )
+
+        _snap = state.get("tunable_snapshot", {})
+        num_results = int(_snap.get("results_per_query", 15))
+
+        tasks = [
+            search_sub_query(
+                sq,
+                backend_configs=backend_configs,
+                cache=search_cache,
+                num_results=num_results,
+            )
+            for sq in follow_up_queries
+        ]
+        results_lists = await asyncio.gather(*tasks, return_exceptions=True)
+
+        all_results = []
+        for result in results_lists:
+            if isinstance(result, list):
+                all_results.extend(result)
+
+        if writer:
+            writer(
+                {
+                    "kind": "search_progress",
+                    "message": "follow-up complete",
+                    "count": len(all_results),
+                }
+            )
+
+        return {"search_results": all_results}
+
+    async def extract_followup_node(
+        state: ResearchState,
+        config: RunnableConfig | None = None,
+    ) -> dict:
+        """V9: Extract content from follow-up search results."""
+        writer = _get_stream_writer(config)
+        # Only extract results from follow-up queries
+        follow_up_ids = {sq["id"] for sq in state.get("follow_up_queries", [])}
+        all_results = state.get("search_results", [])
+        followup_results = [r for r in all_results if r.get("sub_query_id") in follow_up_ids]
+
+        if not followup_results:
+            return {"extracted_contents": []}
+
+        # Deduplicate by URL (against ALL previous extractions)
+        already_extracted = {ec["url"] for ec in state.get("extracted_contents", [])}
+        unique_results = []
+        seen_urls: set[str] = set()
+        for sr in followup_results:
+            url = sr["url"]
+            if url not in seen_urls and url not in already_extracted:
+                seen_urls.add(url)
+                unique_results.append(sr)
+
+        _snap = state.get("tunable_snapshot", {})
+        follow_up_budget = int(_snap.get("follow_up_budget", 5))
+        content_trunc = int(_snap.get("content_truncation_chars", 50000))
+
+        # Cap follow-up extractions to budget * 3
+        capped = unique_results[: follow_up_budget * 3]
+
+        if writer:
+            writer({"kind": "extract_progress", "message": f"follow-up: {len(capped)} URLs"})
+
+        sem = asyncio.Semaphore(settings.max_concurrent_requests)
+        _grobid_url = settings.grobid_url
+
+        async def extract_with_sem(sr):
+            async with sem:
+                return await extract_content(
+                    sr, content_truncation_chars=content_trunc, grobid_url=_grobid_url
+                )
+
+        tasks = [extract_with_sem(sr) for sr in capped]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        extracted = []
+        for result in results:
+            if isinstance(result, dict):
+                extracted.append(result)
+
+        if writer:
+            writer(
+                {
+                    "kind": "extract_progress",
+                    "message": "follow-up complete",
+                    "count": len(extracted),
+                }
+            )
+
+        return {"extracted_contents": extracted}
+
+    async def score_merge_node(state: ResearchState) -> dict:
+        """V9: Re-score all documents (original + follow-up) after follow-up extraction."""
+        search_results = state.get("search_results", [])
+        extracted_contents = state.get("extracted_contents", [])
+
+        scored = build_scored_documents(
+            search_results,
+            extracted_contents,
+            k=settings.rrf_k,
+            authority_weight=settings.authority_weight,
+        )
+        diversity = compute_diversity(scored)
+
+        # Also re-chunk with new content
+        passages = chunk_all_documents(extracted_contents, scored)
+
+        return {
+            "scored_documents": scored,
+            "diversity_metrics": diversity,
+            "source_passages": passages,
+        }
 
     async def citation_chain_node(state: ResearchState) -> dict:
         """Expand evidence via citation graph traversal (V7, PR-08)."""
         return await citation_chain(state, s2_backend)
 
-    async def contradiction_node(state: ResearchState) -> dict:
+    async def contradiction_node(
+        state: ResearchState,
+        config: RunnableConfig | None = None,
+    ) -> dict:
         """Detect contradictions among scored documents."""
         scored_docs = state.get("scored_documents", [])
         if len(scored_docs) < 2:
@@ -375,6 +569,17 @@ def build_graph(
         result: dict = {"contradictions": contradictions}
         if usage:
             result["token_usage"] = [usage]
+
+        # V9: Rich streaming — emit contradiction summary
+        writer = _get_stream_writer(config)
+        if writer and contradictions:
+            writer(
+                {
+                    "kind": "contradiction_summary",
+                    "count": len(contradictions),
+                }
+            )
+
         return result
 
     async def synthesize_node(state: ResearchState) -> dict:
@@ -412,12 +617,17 @@ def build_graph(
 
     node_map: dict[str, callable] = {
         "health_check": health_check_node,
+        "clarify": clarify_node,
         "plan": plan_node,
         "search": search_node,
         "adapt_extraction": adapt_extraction_node,
         "extract": extract_node,
         "chunk_passages": chunk_passages_node,
         "score": score_node,
+        "gap_analysis": gap_analysis_node,
+        "search_followup": search_followup_node,
+        "extract_followup": extract_followup_node,
+        "score_merge": score_merge_node,
         "adapt_synthesis": adapt_synthesis_node,
         "citation_chain": citation_chain_node,
         "contradiction": contradiction_node,
@@ -484,7 +694,8 @@ def build_graph(
 
     # Wire edges: health_check -> plan -> ... -> score -> contradiction -> synthesize -> ...
     graph.set_entry_point("health_check")
-    graph.add_edge("health_check", "plan")
+    graph.add_edge("health_check", "clarify")
+    graph.add_edge("clarify", "plan")
 
     if hitl_mode:
         graph.add_edge("plan", "plan_gate")
@@ -496,7 +707,28 @@ def build_graph(
     graph.add_edge("adapt_extraction", "extract")
     graph.add_edge("extract", "chunk_passages")
     graph.add_edge("chunk_passages", "score")
-    graph.add_edge("score", "adapt_synthesis")
+
+    # V9: Reactive search loop (G2) — score -> gap_analysis -> [follow-up?] -> adapt_synthesis
+    graph.add_edge("score", "gap_analysis")
+
+    def should_follow_up(state: ResearchState) -> str:
+        """Route after gap_analysis: follow-up search or continue to synthesis."""
+        follow_ups = state.get("follow_up_queries", [])
+        follow_up_round = state.get("follow_up_round", 0)
+        # Only follow up if we have queries and haven't already done a follow-up
+        if follow_ups and follow_up_round <= 1:
+            return "search_followup"
+        return "adapt_synthesis"
+
+    graph.add_conditional_edges(
+        "gap_analysis",
+        should_follow_up,
+        {"search_followup": "search_followup", "adapt_synthesis": "adapt_synthesis"},
+    )
+    graph.add_edge("search_followup", "extract_followup")
+    graph.add_edge("extract_followup", "score_merge")
+    graph.add_edge("score_merge", "adapt_synthesis")
+
     graph.add_edge("adapt_synthesis", "citation_chain")
     graph.add_edge("citation_chain", "contradiction")
     graph.add_edge("contradiction", "synthesize")

@@ -112,12 +112,15 @@ class TestHitlModeWithCheckpointer:
         checkpointer = MemorySaver()
         graph = build_graph(settings, checkpointer=checkpointer, mode="hitl")
         edges = _get_edges(graph)
-        assert ("health_check", "plan") in edges
+        # V9: health_check -> clarify -> plan
+        assert ("health_check", "clarify") in edges
+        assert ("clarify", "plan") in edges
         assert ("search", "adapt_extraction") in edges
         assert ("adapt_extraction", "extract") in edges
         assert ("extract", "chunk_passages") in edges
         assert ("chunk_passages", "score") in edges
-        assert ("score", "adapt_synthesis") in edges
+        # V9: score -> gap_analysis -> [conditional] -> adapt_synthesis
+        assert ("score", "gap_analysis") in edges
         assert ("adapt_synthesis", "citation_chain") in edges
         assert ("citation_chain", "contradiction") in edges
         assert ("contradiction", "synthesize") in edges

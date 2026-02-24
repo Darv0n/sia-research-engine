@@ -17,7 +17,7 @@ from deep_research_swarm.contracts import Tunable
 
 _DEFAULTS: list[Tunable] = [
     # Extraction
-    Tunable(name="extraction_cap", default=30, floor=15, ceiling=100, category="extraction"),
+    Tunable(name="extraction_cap", default=50, floor=15, ceiling=150, category="extraction"),
     Tunable(
         name="content_truncation_chars",
         default=50000,
@@ -46,7 +46,7 @@ _DEFAULTS: list[Tunable] = [
     Tunable(name="max_refinement_attempts", default=2, floor=1, ceiling=5, category="grounding"),
     Tunable(
         name="max_passages_per_section",
-        default=8,
+        default=10,
         floor=4,
         ceiling=20,
         category="grounding",
@@ -55,10 +55,14 @@ _DEFAULTS: list[Tunable] = [
     Tunable(name="citation_chain_budget", default=50, floor=20, ceiling=150, category="search"),
     Tunable(name="citation_chain_max_hops", default=2, floor=1, ceiling=4, category="search"),
     Tunable(name="citation_chain_top_seeds", default=5, floor=3, ceiling=15, category="search"),
-    Tunable(name="results_per_query", default=10, floor=5, ceiling=30, category="search"),
+    Tunable(name="results_per_query", default=15, floor=5, ceiling=30, category="search"),
+    # Planning (V9)
+    Tunable(name="perspectives_count", default=5, floor=3, ceiling=8, category="planning"),
+    Tunable(name="target_queries", default=12, floor=6, ceiling=25, category="planning"),
+    Tunable(name="follow_up_budget", default=5, floor=0, ceiling=10, category="planning"),
     # Synthesis
     Tunable(name="min_sections", default=3, floor=2, ceiling=5, category="synthesis"),
-    Tunable(name="max_sections", default=7, floor=4, ceiling=12, category="synthesis"),
+    Tunable(name="max_sections", default=8, floor=4, ceiling=15, category="synthesis"),
     Tunable(name="max_docs_for_outline", default=20, floor=10, ceiling=50, category="synthesis"),
 ]
 

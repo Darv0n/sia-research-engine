@@ -14,6 +14,10 @@ NODE_LABELS: dict[str, str] = {
     "extract": "Extracting content",
     "chunk_passages": "Chunking passages",
     "score": "Scoring documents",
+    "gap_analysis": "Analyzing gaps",
+    "search_followup": "Follow-up search",
+    "extract_followup": "Follow-up extraction",
+    "score_merge": "Merging scores",
     "adapt_synthesis": "Adapting synthesis",
     "citation_chain": "Citation chaining",
     "synthesize": "Synthesizing report",
@@ -21,6 +25,7 @@ NODE_LABELS: dict[str, str] = {
     "rollup_budget": "Rolling up budget",
     "report": "Generating report",
     "contradiction": "Detecting contradictions",
+    "clarify": "Clarifying scope",
     "plan_gate": "Awaiting plan approval",
     "report_gate": "Awaiting report approval",
 }
@@ -69,12 +74,40 @@ class StreamDisplay:
         msg = event.get("message", "")
         count = event.get("count")
 
-        if kind == "search_progress":
+        if kind == "plan_summary":
+            # V9: Always show research plan for transparency
+            iteration = event.get("iteration", 1)
+            perspectives = event.get("perspectives", [])
+            queries = event.get("queries", [])
+            self._print(f"    Plan (iteration {iteration}):")
+            for p in perspectives:
+                self._print(f"      - {p}")
+            self._print(f"    Queries ({len(queries)}):")
+            for q in queries:
+                self._print(f"      > {q}")
+        elif kind == "search_progress":
             count_str = f" ({count} results)" if count is not None else ""
             self._print(f"    search{count_str}: {msg}")
         elif kind == "extract_progress":
             count_str = f" ({count} extracted)" if count is not None else ""
             self._print(f"    extract{count_str}: {msg}")
+        elif kind == "findings_preview":
+            # V9: Rich streaming — show top findings during pipeline
+            sources = event.get("top_sources", [])
+            if sources:
+                self._print(f"    Top sources ({len(sources)}):")
+                for s in sources[:5]:
+                    self._print(f"      - {s}")
+        elif kind == "grounding_summary":
+            # V9: Rich streaming — grounding stats
+            avg = event.get("avg_score", 0)
+            total = event.get("total_passages", 0)
+            self._print(f"    Grounding: {avg:.2f} avg across {total} passages")
+        elif kind == "contradiction_summary":
+            # V9: Rich streaming — contradiction count
+            found = event.get("count", 0)
+            if found:
+                self._print(f"    Contradictions: {found} detected")
         elif msg:
             self._print(f"    {msg}")
 
