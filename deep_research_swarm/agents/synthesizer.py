@@ -1,6 +1,11 @@
-"""Synthesizer agent — outline-first, mechanically-grounded synthesis (V7, PR-11).
+"""Synthesizer agent — outline-first, mechanically-grounded synthesis.
 
-5-stage sub-pipeline:
+V10 2-stage path (when knowledge_artifact present):
+  Stage 1: Outline from KnowledgeArtifact (1 Opus call)
+  Stage 2: Section drafts from clusters (N parallel Sonnet calls)
+  Compose: intro/transitions/conclusion (1 call)
+
+V9 fallback (5-stage, when no knowledge_artifact):
   Stage 0: Outline validation (deterministic, no LLM)
   Stage 1: Outline generation (1 LLM call)
   Stage 2: Per-section drafting (N parallel LLM calls)
@@ -560,15 +565,325 @@ def _build_output(
     }
 
 
+# ============================================================
+# V10 2-Stage Synthesis (KnowledgeArtifact path)
+# ============================================================
+
+V10_OUTLINE_SYSTEM = """\
+You are a research outline architect. You have access to a pre-structured \
+KnowledgeArtifact containing clustered source passages, verified claims, \
+authority profiles, and active tensions between sources.
+
+Your job:
+1. Design {min_sections}-{max_sections} sections that cover the key clusters.
+2. For each section, list the cluster IDs to draw from and 2-5 specific claims.
+3. If active tensions exist, plan a section that acknowledges opposing viewpoints.
+4. If reactor constraints are provided, incorporate them into the outline.
+
+Output STRICT JSON (no markdown, no commentary):
+{{
+  "sections": [
+    {{
+      "heading": "Section Title",
+      "key_claims": ["Specific claim 1", "Specific claim 2"],
+      "cluster_ids": ["cluster-abc123"],
+      "narrative_role": "introduces the core concept"
+    }}
+  ],
+  "narrative_arc": "Brief description of how sections flow together"
+}}
+
+Rules:
+- Every claim must be supported by the referenced clusters' verified claims.
+- Structural risks must be acknowledged, not hidden.
+- Active tensions get their own section or subsection.
+"""
+
+V10_SECTION_SYSTEM = """\
+You are a research section writer. Write ONE section using pre-verified claims \
+and source passages from a knowledge cluster.
+
+You will be given:
+- The section heading and its narrative role
+- Cluster summaries with key claims and authority profiles
+- Source passages ranked by credibility
+
+Rules:
+- ONLY use information from the provided passages and claims.
+- Every factual claim MUST have an inline [N] citation.
+- Write in clear professional prose. Target 400-800 words per section.
+- Include analysis and interpretation. Explain WHY findings matter.
+- Compare and contrast different sources where they offer different perspectives.
+
+Output STRICT JSON (no markdown, no commentary):
+{{
+  "heading": "Section Title",
+  "content": "Written section with [N] citations...",
+  "passage_ids_used": ["sp-abc123"],
+  "unsupported_claims": []
+}}
+"""
+
+
+async def _synthesize_v10(
+    state: ResearchState,
+    caller: AgentCaller,
+    *,
+    sonnet_caller: AgentCaller | None = None,
+    haiku_caller: AgentCaller | None = None,
+) -> dict:
+    """V10 2-stage synthesis from KnowledgeArtifact.
+
+    Stage 1: Outline from artifact (1 Opus call)
+    Stage 2: Section drafts from clusters (N Sonnet calls in parallel)
+    Compose: intro/transitions/conclusion (1 call)
+    """
+    artifact = state.get("knowledge_artifact", {})
+    passages = state.get("source_passages", [])
+    research_question = state["research_question"]
+
+    _snap = state.get("tunable_snapshot", {})
+    max_secs = int(_snap.get("max_sections", 7))
+    min_secs = int(_snap.get("min_sections", 3))
+
+    # Use sonnet for section drafting, haiku for composition
+    section_caller = sonnet_caller or caller
+    compose_caller = haiku_caller or caller
+
+    all_usage: list = []
+    passage_map = {p.get("id", ""): p for p in passages if p.get("id")}
+
+    # --- Stage 1: Outline from KnowledgeArtifact ---
+    clusters = artifact.get("clusters", [])
+    tensions = artifact.get("active_tensions", [])
+    risks = artifact.get("structural_risks", [])
+    reactor_constraints = state.get("reactor_trace", {}).get("constraints", [])
+
+    cluster_summary = "\n".join(
+        f"- {c.get('theme', 'unknown')} ({len(c.get('passage_ids', []))} passages, "
+        f"{len(c.get('claims', []))} claims)"
+        for c in clusters
+    )
+
+    tension_summary = (
+        "\n".join(
+            f"- {t.get('severity', 'unknown')}: {t.get('resolution_hint', '')}" for t in tensions
+        )
+        if tensions
+        else "No active tensions."
+    )
+
+    risk_summary = "\n".join(f"- {r}" for r in risks) if risks else "No structural risks."
+
+    constraint_text = ""
+    if reactor_constraints:
+        constraint_text = "\n\nReactor constraints:\n" + "\n".join(
+            f"- {c}" for c in reactor_constraints
+        )
+
+    system = V10_OUTLINE_SYSTEM.format(
+        min_sections=min_secs,
+        max_sections=max_secs,
+    )
+    user_content = (
+        f"Research question: {research_question}\n\n"
+        f"Knowledge clusters:\n{cluster_summary}\n\n"
+        f"Active tensions:\n{tension_summary}\n\n"
+        f"Structural risks:\n{risk_summary}"
+        f"{constraint_text}"
+    )
+
+    data, usage = await caller.call_json(
+        system=system,
+        messages=[{"role": "user", "content": user_content}],
+        agent_name="synthesizer_v10_outline",
+        max_tokens=4096,
+    )
+    all_usage.append(usage)
+
+    # Parse outline sections
+    outline_sections = data.get("sections", [])
+    if not outline_sections:
+        # Fallback: one section per cluster
+        outline_sections = [
+            {
+                "heading": c.get("theme", f"Section {i + 1}"),
+                "key_claims": [cv.get("claim_text", "") for cv in c.get("claims", [])[:3]],
+                "cluster_ids": [c.get("cluster_id", "")],
+                "narrative_role": "evidence cluster",
+            }
+            for i, c in enumerate(clusters[:max_secs])
+        ]
+
+    # --- Stage 2: Section drafts from clusters (parallel Sonnet) ---
+    async def _draft_v10_section(sec: dict) -> tuple[dict, list]:
+        # Gather passages from referenced clusters
+        cluster_ids = sec.get("cluster_ids", [])
+        section_passages: list[SourcePassage] = []
+        cluster_text_parts: list[str] = []
+
+        for cid in cluster_ids:
+            for c in clusters:
+                if c.get("cluster_id") == cid:
+                    for pid in c.get("passage_ids", [])[:10]:
+                        if pid in passage_map:
+                            section_passages.append(passage_map[pid])
+                    cluster_text_parts.append(c.get("summary", ""))
+                    break
+
+        if not section_passages:
+            return {
+                "heading": sec["heading"],
+                "content": "[insufficient evidence from clusters]",
+                "passage_ids_used": [],
+                "unsupported_claims": sec.get("key_claims", []),
+            }, []
+
+        passage_context = _build_passage_context(section_passages)
+        claims_text = "\n".join(f"- {c}" for c in sec.get("key_claims", []))
+        cluster_context = "\n".join(cluster_text_parts)
+
+        user = (
+            f"Section heading: {sec['heading']}\n"
+            f"Narrative role: {sec.get('narrative_role', 'evidence')}\n"
+            f"Claims to support:\n{claims_text}\n\n"
+            f"Cluster context:\n{cluster_context}\n\n"
+            f"Source passages ({len(section_passages)} available):\n"
+            f"{passage_context}"
+        )
+
+        draft_data, draft_usage = await section_caller.call_json(
+            system=V10_SECTION_SYSTEM,
+            messages=[{"role": "user", "content": user}],
+            agent_name="synthesizer_v10_section",
+            max_tokens=4096,
+        )
+        draft_data["heading"] = sec["heading"]
+        return draft_data, [draft_usage]
+
+    tasks = [_draft_v10_section(sec) for sec in outline_sections]
+    results = await asyncio.gather(*tasks)
+
+    all_drafts: list[dict] = []
+    for draft_data, usage in results:
+        all_usage.extend(usage)
+        all_drafts.append(draft_data)
+
+    # --- Build citation maps ---
+    # Collect passages per section for citation mapping
+    section_passages_map: dict[str, list[SourcePassage]] = {}
+    for sec, draft in zip(outline_sections, all_drafts):
+        heading = draft["heading"]
+        cluster_ids = sec.get("cluster_ids", [])
+        sec_passages: list[SourcePassage] = []
+        for cid in cluster_ids:
+            for c in clusters:
+                if c.get("cluster_id") == cid:
+                    for pid in c.get("passage_ids", [])[:10]:
+                        if pid in passage_map:
+                            sec_passages.append(passage_map[pid])
+                    break
+        section_passages_map[heading] = sec_passages
+
+    citation_map, citation_to_passage_map = _build_global_citation_map(
+        all_drafts,
+        section_passages_map,
+    )
+
+    # --- Grounding verification (mechanical, no LLM) ---
+    verified: list[tuple[dict, float, list[dict]]] = []
+    for draft in all_drafts:
+        heading = draft["heading"]
+        content = draft.get("content", "")
+        section_map = citation_map.get(heading, {})
+        renumbered = _renumber_section_content(content, section_map)
+        cit_ids = list(dict.fromkeys(f"[{r}]" for r in re.findall(r"\[(\d+)\]", renumbered)))
+        score, details = compute_section_grounding_score(
+            renumbered,
+            cit_ids,
+            passages,
+            citation_to_passage_map,
+        )
+        verified.append((draft, score, details))
+
+    # --- Composition ---
+    composition, usage = await _compose_report(
+        [v[0] for v in verified],
+        research_question,
+        compose_caller,
+    )
+    all_usage.extend(usage)
+
+    # --- Research gaps from unsupported claims ---
+    research_gaps: list[ResearchGap] = []
+    for draft, _, _ in verified:
+        for claim in draft.get("unsupported_claims", []):
+            if claim:
+                research_gaps.append(
+                    ResearchGap(
+                        description=claim,
+                        attempted_queries=[],
+                        reason="no_sources",
+                    )
+                )
+
+    # --- Build output (same shape as V9) ---
+    result = _build_output(
+        verified,
+        composition,
+        citation_map,
+        citation_to_passage_map,
+        section_passages_map,
+        research_gaps,
+    )
+    result["token_usage"] = all_usage
+
+    # Populate claim graph
+    all_claims: list[dict] = []
+    for sec in result.get("section_drafts", []):
+        all_claims.extend(extract_claims_from_section(sec))
+    if all_claims:
+        updated_passages = populate_claim_ids(
+            passages,
+            all_claims,
+            result.get("citation_to_passage_map", {}),
+        )
+        result["source_passages"] = updated_passages
+
+    return result
+
+
 # --- Main entry point ---
 
 
-async def synthesize(state: ResearchState, caller: AgentCaller) -> dict:
+async def synthesize(
+    state: ResearchState,
+    caller: AgentCaller,
+    *,
+    sonnet_caller: AgentCaller | None = None,
+    haiku_caller: AgentCaller | None = None,
+) -> dict:
     """Synthesize scored documents into section drafts with citations.
 
-    5-stage outline-first pipeline with mechanical grounding verification.
-    External interface preserved from V6.
+    Routes to V10 2-stage path when knowledge_artifact is present,
+    otherwise falls back to V9 5-stage pipeline.
+
+    External interface preserved: returns same dict shape regardless of path.
     """
+    # V10 path: KnowledgeArtifact present with clusters
+    artifact = state.get("knowledge_artifact", {})
+    if artifact and artifact.get("clusters"):
+        try:
+            return await _synthesize_v10(
+                state,
+                caller,
+                sonnet_caller=sonnet_caller,
+                haiku_caller=haiku_caller,
+            )
+        except Exception:
+            pass  # Fall through to V9
+
+    # V9 fallback path
     scored_docs = state.get("scored_documents", [])
     passages = state.get("source_passages", [])
     current_iteration = state.get("current_iteration", 1)

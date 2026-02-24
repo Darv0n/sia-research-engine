@@ -26,7 +26,15 @@ from deep_research_swarm.agents.planner import plan
 from deep_research_swarm.agents.searcher import search_sub_query
 from deep_research_swarm.agents.synthesizer import synthesize
 from deep_research_swarm.backends.cache import SearchCache
+from deep_research_swarm.compress.artifact import build_knowledge_artifact
 from deep_research_swarm.config import Settings
+from deep_research_swarm.deliberate.merge import merge_judgments
+from deep_research_swarm.deliberate.panel import (
+    authority_judge,
+    contradiction_judge,
+    coverage_judge,
+    grounding_judge,
+)
 from deep_research_swarm.extractors.chunker import chunk_all_documents
 from deep_research_swarm.graph.state import ResearchState
 from deep_research_swarm.reporting.renderer import render_report
@@ -150,6 +158,11 @@ def build_graph(
     sonnet_caller = AgentCaller(
         api_key=settings.anthropic_api_key,
         model=settings.sonnet_model,
+        max_concurrent=settings.max_concurrent_requests,
+    )
+    haiku_caller = AgentCaller(
+        api_key=settings.anthropic_api_key,
+        model=settings.haiku_model,
         max_concurrent=settings.max_concurrent_requests,
     )
 
@@ -590,8 +603,130 @@ def build_graph(
 
         return result
 
+    async def deliberate_panel_node(
+        state: ResearchState,
+        config: RunnableConfig | None = None,
+    ) -> dict:
+        """Run 4-judge deliberation panel (V10/Tensegrity)."""
+        scored_docs = state.get("scored_documents", [])
+        passages = state.get("source_passages", [])
+        section_drafts = state.get("section_drafts", [])
+        citation_map = state.get("citation_to_passage_map", {})
+        research_question = state.get("research_question", "")
+        sub_queries = state.get("sub_queries", [])
+        diversity = state.get("diversity_metrics")
+
+        # Run judges (authority + grounding + coverage are sync, contradiction is async)
+        auth_result = authority_judge(scored_docs, passages)
+        ground_result = grounding_judge(section_drafts, passages, citation_map)
+        cover_result = coverage_judge(
+            scored_docs,
+            research_question,
+            sub_queries,
+            diversity,
+        )
+
+        _snap = state.get("tunable_snapshot", {})
+        max_docs = int(_snap.get("contradiction_max_docs", 10))
+        contra_result = await contradiction_judge(
+            scored_docs,
+            sonnet_caller,
+            max_docs=max_docs,
+        )
+
+        # Merge judgments
+        wave_num = state.get("wave_count", 0) + 1
+        jc = merge_judgments(
+            auth_result,
+            ground_result,
+            contra_result,
+            cover_result,
+            wave_number=wave_num,
+        )
+
+        result: dict = {
+            "judgment_context": dict(jc),
+            "panel_judgments": [
+                {"judge": "authority", "summary": auth_result},
+                {"judge": "grounding", "summary": ground_result},
+                {"judge": "contradiction", "summary": contra_result},
+                {"judge": "coverage", "summary": cover_result},
+            ],
+            "wave_count": wave_num,
+        }
+
+        # Merge token usage from contradiction judge
+        if contra_result.get("token_usage"):
+            result["token_usage"] = contra_result["token_usage"]
+
+        # Stream panel completion
+        writer = _get_stream_writer(config)
+        if writer:
+            try:
+                writer(
+                    {
+                        "kind": "panel_complete",
+                        "coverage": jc.get("overall_coverage", 0),
+                        "risks": len(jc.get("structural_risks", [])),
+                        "tensions": len(jc.get("active_tensions", [])),
+                        "claims": len(jc.get("claim_verdicts", [])),
+                    }
+                )
+            except Exception:
+                pass
+
+        return result
+
+    async def compress_node(
+        state: ResearchState,
+        config: RunnableConfig | None = None,
+    ) -> dict:
+        """Build KnowledgeArtifact from judgments + passages (V10)."""
+        jc = state.get("judgment_context", {})
+        passages = state.get("source_passages", [])
+        research_question = state.get("research_question", "")
+
+        if not jc or not passages:
+            return {}
+
+        _snap = state.get("tunable_snapshot", {})
+        max_clusters = int(_snap.get("max_clusters", 12))
+        claims_per = int(_snap.get("claims_per_cluster", 8))
+
+        artifact = build_knowledge_artifact(
+            jc,
+            passages,
+            max_clusters=max_clusters,
+            claims_per_cluster=claims_per,
+            use_embeddings=True,
+            embedding_model=settings.embedding_model,
+        )
+        artifact["question"] = research_question
+
+        # Stream compression event
+        writer = _get_stream_writer(config)
+        if writer:
+            try:
+                writer(
+                    {
+                        "kind": "compression_complete",
+                        "clusters": len(artifact.get("clusters", [])),
+                        "claims": len(artifact.get("claim_verdicts", [])),
+                        "ratio": artifact.get("compression_ratio", 0),
+                    }
+                )
+            except Exception:
+                pass
+
+        return {"knowledge_artifact": dict(artifact)}
+
     async def synthesize_node(state: ResearchState) -> dict:
-        return await synthesize(state, opus_caller)
+        return await synthesize(
+            state,
+            opus_caller,
+            sonnet_caller=sonnet_caller,
+            haiku_caller=haiku_caller,
+        )
 
     async def critique_node(state: ResearchState) -> dict:
         return await critique(
@@ -701,6 +836,8 @@ def build_graph(
         "adapt_synthesis": adapt_synthesis_node,
         "citation_chain": citation_chain_node,
         "contradiction": contradiction_node,
+        "deliberate_panel": deliberate_panel_node,
+        "compress": compress_node,
         "synthesize": synthesize_node,
         "critique": critique_node,
         "compute_entropy": compute_entropy_node,
@@ -802,7 +939,9 @@ def build_graph(
 
     graph.add_edge("adapt_synthesis", "citation_chain")
     graph.add_edge("citation_chain", "contradiction")
-    graph.add_edge("contradiction", "synthesize")
+    graph.add_edge("contradiction", "deliberate_panel")
+    graph.add_edge("deliberate_panel", "compress")
+    graph.add_edge("compress", "synthesize")
     graph.add_edge("synthesize", "critique")
     graph.add_edge("critique", "compute_entropy")
     graph.add_edge("compute_entropy", "rollup_budget")

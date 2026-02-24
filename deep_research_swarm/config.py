@@ -36,6 +36,9 @@ class Settings:
     sonnet_model: str = field(
         default_factory=lambda: os.environ.get("SONNET_MODEL", "claude-sonnet-4-6")
     )
+    haiku_model: str = field(
+        default_factory=lambda: os.environ.get("HAIKU_MODEL", "claude-haiku-4-5-20251001")
+    )
 
     # Limits
     max_iterations: int = field(default_factory=lambda: int(os.environ.get("MAX_ITERATIONS", "3")))

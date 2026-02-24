@@ -123,7 +123,10 @@ class TestHitlModeWithCheckpointer:
         assert ("score", "gap_analysis") in edges
         assert ("adapt_synthesis", "citation_chain") in edges
         assert ("citation_chain", "contradiction") in edges
-        assert ("contradiction", "synthesize") in edges
+        # V10: contradiction -> deliberate_panel -> compress -> synthesize
+        assert ("contradiction", "deliberate_panel") in edges
+        assert ("deliberate_panel", "compress") in edges
+        assert ("compress", "synthesize") in edges
         assert ("synthesize", "critique") in edges
         # V10: critique -> compute_entropy -> rollup_budget
         assert ("critique", "compute_entropy") in edges

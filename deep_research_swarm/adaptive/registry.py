@@ -64,6 +64,15 @@ _DEFAULTS: list[Tunable] = [
     Tunable(name="min_sections", default=3, floor=2, ceiling=5, category="synthesis"),
     Tunable(name="max_sections", default=8, floor=4, ceiling=15, category="synthesis"),
     Tunable(name="max_docs_for_outline", default=20, floor=10, ceiling=50, category="synthesis"),
+    # Deliberation (V10)
+    Tunable(name="max_waves", default=5, floor=2, ceiling=8, category="deliberation"),
+    Tunable(name="wave_batch_size", default=3, floor=1, ceiling=5, category="deliberation"),
+    Tunable(name="wave_extract_cap", default=15, floor=5, ceiling=30, category="deliberation"),
+    Tunable(
+        name="coverage_threshold", default=0.75, floor=0.5, ceiling=0.95, category="deliberation"
+    ),
+    Tunable(name="max_clusters", default=12, floor=3, ceiling=20, category="deliberation"),
+    Tunable(name="claims_per_cluster", default=8, floor=3, ceiling=15, category="deliberation"),
 ]
 
 

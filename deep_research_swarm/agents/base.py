@@ -228,7 +228,7 @@ class AgentCaller:
         try:
             data = json.loads(cleaned)
             return data, usage
-        except json.JSONDecodeError as first_err:
+        except json.JSONDecodeError:
             pass  # Fall through to retry
 
         # --- Single retry: feed the failed output back and demand strict JSON ---

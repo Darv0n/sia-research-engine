@@ -121,3 +121,10 @@ class ResearchState(TypedDict):
     # Entropy thermodynamics (V10/SIA) — convergence control
     entropy_state: Annotated[dict, _replace_dict]
     entropy_history: Annotated[list[dict], operator.add]
+
+    # Deliberation panel (V10/Tensegrity) — structured evidence
+    panel_judgments: Annotated[list[dict], operator.add]
+    judgment_context: Annotated[dict, _replace_dict]
+    knowledge_artifact: Annotated[dict, _replace_dict]
+    deliberation_waves: Annotated[list[dict], operator.add]
+    wave_count: Annotated[int, _replace_int]

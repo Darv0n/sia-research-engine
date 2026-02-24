@@ -9,13 +9,10 @@ import pytest
 
 from deep_research_swarm.agents.base import AgentCaller
 
-
 # --- Helpers ---
 
 
-def _make_response(
-    text: str, input_tokens: int = 100, output_tokens: int = 50
-) -> SimpleNamespace:
+def _make_response(text: str, input_tokens: int = 100, output_tokens: int = 50) -> SimpleNamespace:
     """Build a minimal mock response matching Anthropic SDK shape."""
     text_block = SimpleNamespace(type="text", text=text)
     usage = SimpleNamespace(input_tokens=input_tokens, output_tokens=output_tokens)
@@ -60,9 +57,7 @@ class TestCallJsonHappyPath:
         """JSON wrapped in ```json fences should parse without retry."""
         caller = _make_caller()
         caller._client.messages.create = AsyncMock(
-            return_value=_make_response(
-                '```json\n{"heading": "Test", "content": "ok"}\n```'
-            )
+            return_value=_make_response('```json\n{"heading": "Test", "content": "ok"}\n```')
         )
         data, usage = await caller.call_json(**_CALL_KWARGS)
         assert data["heading"] == "Test"
@@ -95,9 +90,7 @@ class TestCallJsonRetry:
         )
         json_resp = _make_response('{"heading": "Fixed", "content": "Revised text"}')
 
-        caller._client.messages.create = AsyncMock(
-            side_effect=[prose_resp, json_resp]
-        )
+        caller._client.messages.create = AsyncMock(side_effect=[prose_resp, json_resp])
         data, usage = await caller.call_json(**_CALL_KWARGS)
         assert data == {"heading": "Fixed", "content": "Revised text"}
         assert caller._client.messages.create.call_count == 2
@@ -109,9 +102,7 @@ class TestCallJsonRetry:
         broken_resp = _make_response('{"heading": "Test", "content": "missing quote}')
         fixed_resp = _make_response('{"heading": "Test", "content": "fixed"}')
 
-        caller._client.messages.create = AsyncMock(
-            side_effect=[broken_resp, fixed_resp]
-        )
+        caller._client.messages.create = AsyncMock(side_effect=[broken_resp, fixed_resp])
         data, usage = await caller.call_json(**_CALL_KWARGS)
         assert data["content"] == "fixed"
         assert caller._client.messages.create.call_count == 2
@@ -184,9 +175,7 @@ class TestCallJsonTokenMerge:
         """When no retry is needed, usage is from single call only."""
         caller = _make_caller()
         caller._client.messages.create = AsyncMock(
-            return_value=_make_response(
-                '{"ok": true}', input_tokens=300, output_tokens=50
-            )
+            return_value=_make_response('{"ok": true}', input_tokens=300, output_tokens=50)
         )
         data, usage = await caller.call_json(**_CALL_KWARGS)
         assert usage["input_tokens"] == 300

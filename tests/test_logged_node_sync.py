@@ -2,9 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
-from unittest.mock import MagicMock
-
 import pytest
 
 from deep_research_swarm.event_log.writer import EventLog
@@ -70,9 +67,7 @@ class TestSyncNodeWrapping:
     async def test_sync_node_with_config_param(self, tmp_path):
         """Sync node with 2 params (state, config) should also work."""
         event_log = _make_event_log(tmp_path)
-        wrapped = _wrap_with_logging(
-            "adapt_extraction", _sync_node_with_config, event_log
-        )
+        wrapped = _wrap_with_logging("adapt_extraction", _sync_node_with_config, event_log)
         result = await wrapped({"current_iteration": 1})
         assert result["tunable_snapshot"]["extraction_cap"] == 60
 
