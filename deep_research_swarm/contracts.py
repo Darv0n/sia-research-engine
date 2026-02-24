@@ -322,3 +322,222 @@ class SearcherInput(TypedDict):
 
 class ExtractorInput(TypedDict):
     search_result: SearchResult
+
+
+# --- SIA Types (V10) ---
+
+
+class EntropyBand(str, Enum):
+    """Thermodynamic entropy bands for reactor steering."""
+
+    CRYSTALLINE = "crystalline"  # <= 0.20 — synthesis zone
+    CONVERGENCE = "convergence"  # 0.20-0.45 — build and compress
+    TURBULENCE = "turbulence"  # 0.45-0.70 — productive tension
+    RUNAWAY = "runaway"  # > 0.70 — containment needed
+
+
+class IntType(str, Enum):
+    """Interaction type grammar for turn-to-turn dynamics."""
+
+    B = "B"  # Build — expands on prior
+    C = "C"  # Challenge — questions/refutes
+    RF = "RF"  # Reframe — changes perspective
+    CL = "CL"  # Clarify — requests clarification
+    CO = "CO"  # Coalition — attempts alignment
+    A = "A"  # Agreement — agrees with prior
+    S = "S"  # Support — offers supporting evidence
+    INTERRUPT = "I"  # Interrupt — breaks flow
+    INIT = "INIT"  # Initial turn
+
+
+class EntropyState(TypedDict):
+    """Thermodynamic entropy measurement from ResearchState observables."""
+
+    e: float  # scalar entropy in [0, 1]
+    e_amb: float  # ambiguity component
+    e_conf: float  # conflict component
+    e_nov: float  # novelty component
+    e_trust: float  # trust/coherence component
+    band: str  # EntropyBand value
+    turn: int
+    stagnation_count: int  # consecutive turns with |delta_e| < 0.03
+
+
+class TurnRecord(TypedDict):
+    """Record of a single reactor deliberation turn."""
+
+    turn: int
+    agent: str  # SIAAgent.id
+    int_type: str  # IntType value
+    constraints: list[str]
+    challenges: list[str]
+    reframes: list[str]
+    response_to_prior: list[str]
+    raw_output: str
+
+
+class ReactorState(TypedDict):
+    """Accumulated state of the SIA reactor during deliberation."""
+
+    constraints: list[str]
+    rejected_branches: list[str]
+    active_frames: list[str]
+    key_claims: list[str]
+    coalition_map: dict[str, list[str]]  # agent_id -> aligned agent_ids
+    unresolved: list[str]
+    turn_log: list[TurnRecord]
+
+
+class ReactorTrace(TypedDict):
+    """Post-hoc trace of a reactor run for diagnostics."""
+
+    turns_executed: int
+    agents_used: list[str]
+    constraints_produced: int
+    branches_killed: int
+    challenges_issued: int
+    final_entropy: float
+    termination_reason: str
+    ignition_pattern: str
+
+
+class AdversarialFinding(TypedDict):
+    """A single finding from adversarial critique."""
+
+    agent: str
+    int_type: str  # IntType value
+    target_section: str  # section_id or "global"
+    finding: str
+    severity: str  # "critical" | "significant" | "minor"
+    actionable: bool
+    response_to: str
+
+
+class CritiqueTrace(TypedDict):
+    """Post-hoc trace of adversarial critique."""
+
+    turns: int
+    findings_count: int
+    critical_findings: int
+    constraints_extracted: int
+    missing_variables: list[str]
+    alternative_frames: list[str]
+    recommendation: str  # "converge" | "replan" | "refine_targeted"
+
+
+# --- Tensegrity Types (V10) ---
+
+
+class Facet(TypedDict):
+    """A decomposed sub-question from the research question."""
+
+    id: str  # "facet-001"
+    question: str
+    weight: float  # importance 0.0-1.0
+
+
+class ClaimVerdict(TypedDict):
+    """Per-claim merged judgment from deliberation panel."""
+
+    claim_id: str
+    claim_text: str
+    grounding_score: float
+    grounding_method: str  # "jaccard_v1" | "embedding_v1" | "nli_v1"
+    authority_score: float
+    authority_level: str  # SourceAuthority value
+    contradicted: bool
+    contradiction_id: NotRequired[str]
+
+
+class ActiveTension(TypedDict):
+    """A contradiction annotated with authority and grounding context."""
+
+    id: str
+    claim_a: ClaimVerdict
+    claim_b: ClaimVerdict
+    severity: str  # "direct" | "nuanced" | "contextual"
+    authority_differential: float
+    resolution_hint: str
+
+
+class CoverageMap(TypedDict):
+    """Coverage assessment across research facets."""
+
+    facet_coverage: dict[str, float]  # facet_id -> coverage 0.0-1.0
+    overall_coverage: float
+    uncovered_facets: list[str]
+    under_represented_perspectives: list[str]
+
+
+class AuthorityProfile(TypedDict):
+    """Authority distribution summary for a passage cluster."""
+
+    dominant_authority: str  # SourceAuthority value
+    source_count: int
+    avg_authority_score: float
+    institutional_ratio: float
+
+
+class PassageCluster(TypedDict):
+    """A group of related passages clustered by embedding similarity."""
+
+    cluster_id: str
+    theme: str
+    passage_ids: list[str]
+    claims: list[ClaimVerdict]
+    authority: AuthorityProfile
+    summary: str  # Haiku-generated
+
+
+class CrossClusterTension(TypedDict):
+    """A tension that spans two passage clusters."""
+
+    cluster_a_id: str
+    cluster_b_id: str
+    tension: ActiveTension
+
+
+class JudgmentContext(TypedDict):
+    """Merged output from all four deliberation panel agents."""
+
+    claim_verdicts: list[ClaimVerdict]
+    source_credibility: dict[str, float]  # URL -> merged credibility
+    active_tensions: list[ActiveTension]
+    coverage_map: CoverageMap
+    next_wave_queries: list[SubQuery]
+    overall_coverage: float
+    structural_risks: list[str]
+    wave_number: int
+
+
+class KnowledgeArtifact(TypedDict):
+    """Pre-deliberated, pre-verified, pre-ranked knowledge for synthesis."""
+
+    question: str
+    facets: list[Facet]
+    clusters: list[PassageCluster]
+    claim_verdicts: list[ClaimVerdict]
+    active_tensions: list[ActiveTension]
+    coverage: CoverageMap
+    insights: list[dict]  # flexible insight structures
+    authority_profiles: list[AuthorityProfile]
+    structural_risks: list[str]
+    compression_ratio: float  # passages_in / claims_out
+    wave_count: int
+
+
+class SwarmMetadata(TypedDict):
+    """Metadata from multi-reactor swarm execution."""
+
+    n_reactors: int
+    reactor_configs: list[dict]
+    reactor_entropies: list[float]
+    reactor_tokens: list[int]
+    reactor_costs: list[float]
+    winner_id: str
+    selection_reason: str
+    selection_scores: dict[str, float]  # reactor_id -> composite score
+    cross_validation_scores: dict[str, float]  # section_id -> cross-val score
+    total_tokens_all: int
+    total_cost_all: float
+    failed_reactors: list[str]
