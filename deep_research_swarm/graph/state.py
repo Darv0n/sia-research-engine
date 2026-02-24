@@ -128,3 +128,6 @@ class ResearchState(TypedDict):
     knowledge_artifact: Annotated[dict, _replace_dict]
     deliberation_waves: Annotated[list[dict], operator.add]
     wave_count: Annotated[int, _replace_int]
+
+    # SIA Reactor (V10 Phase 3) — multi-turn deliberation trace
+    reactor_trace: Annotated[dict, _replace_dict]

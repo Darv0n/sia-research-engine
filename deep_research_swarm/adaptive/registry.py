@@ -73,6 +73,11 @@ _DEFAULTS: list[Tunable] = [
     ),
     Tunable(name="max_clusters", default=12, floor=3, ceiling=20, category="deliberation"),
     Tunable(name="claims_per_cluster", default=8, floor=3, ceiling=15, category="deliberation"),
+    # SIA Reactor (V10 Phase 3)
+    Tunable(name="sia_reactor_turns", default=6, floor=3, ceiling=10, category="synthesis"),
+    Tunable(
+        name="sia_reactor_budget", default=20000, floor=8000, ceiling=40000, category="synthesis"
+    ),
 ]
 
 

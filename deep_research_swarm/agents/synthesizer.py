@@ -625,6 +625,156 @@ Output STRICT JSON (no markdown, no commentary):
 """
 
 
+async def _run_reactor(
+    state: ResearchState,
+    caller: AgentCaller,
+    *,
+    sonnet_caller: AgentCaller | None = None,
+) -> tuple[dict, dict, list]:
+    """Run the SIA reactor — multi-turn deliberation over KnowledgeArtifact.
+
+    Returns (reactor_state_dict, reactor_trace_dict, token_usage_list).
+    Returns empty dicts + [] if SIA is not available or fails.
+    """
+    from deep_research_swarm.sia.kernel import SIAKernel
+
+    artifact = state.get("knowledge_artifact", {})
+    entropy = state.get("entropy_state", {})
+    _snap = state.get("tunable_snapshot", {})
+
+    max_turns = int(_snap.get("sia_reactor_turns", 6))
+    token_budget = int(_snap.get("sia_reactor_budget", 20000))
+    entropy_band = entropy.get("band", "convergence")
+    entropy_value = entropy.get("e", 0.35)
+
+    reactor_caller = sonnet_caller or caller
+
+    kernel = SIAKernel(
+        max_turns=max_turns,
+        token_budget=token_budget,
+        entropy_band=entropy_band,
+        entropy_value=entropy_value,
+    )
+
+    # Build source summary from artifact clusters
+    clusters = artifact.get("clusters", [])
+    source_parts: list[str] = []
+    for c in clusters[:8]:
+        summary = c.get("summary", "")
+        claims = [cv.get("claim_text", "") for cv in c.get("claims", [])[:3]]
+        source_parts.append(
+            f"[{c.get('theme', 'unknown')}] {summary}\n  Claims: {'; '.join(claims)}"
+        )
+    source_summary = "\n".join(source_parts) if source_parts else "No evidence clusters."
+
+    # Build coverage gaps
+    coverage = artifact.get("coverage", {})
+    coverage_gaps = ", ".join(coverage.get("uncovered_facets", [])) or "None identified."
+
+    # Build tensions
+    tensions = artifact.get("active_tensions", [])
+    tension_text = (
+        "; ".join(t.get("resolution_hint", "") for t in tensions[:5])
+        if tensions
+        else "No active tensions."
+    )
+
+    all_usage: list = []
+    conversation: list[dict[str, str]] = []  # shared conversation thread
+
+    for turn_idx in range(max_turns):
+        should_stop, reason = kernel.should_terminate()
+        if should_stop:
+            break
+
+        agent = kernel.select_speaker(turn_idx)
+
+        # Build the agent prompt with Kernel framing
+        kernel_frame = kernel.frame_turn(agent)
+        constraints_text = "\n".join(f"- {c}" for c in kernel.constraints) or "None yet."
+
+        # Fill template variables in agent's cognitive_lens
+        filled_lens = agent.cognitive_lens.format(
+            research_question=state.get("research_question", ""),
+            source_summary=source_summary,
+            entropy_band=entropy_band,
+            constraints=constraints_text,
+            prior_summary=_build_prior_summary(conversation),
+            coverage_gaps=coverage_gaps,
+            active_tensions=tension_text,
+        )
+
+        system_prompt = kernel_frame + "\n\n" + filled_lens
+
+        # Build messages: shared conversation thread
+        messages = list(conversation) + [
+            {"role": "user", "content": "Analyze the evidence and respond."}
+        ]
+
+        try:
+            response = await reactor_caller.call(
+                system=system_prompt,
+                messages=messages,
+                agent_name=f"reactor_{agent.id}",
+                max_tokens=2000,
+            )
+            raw_output = response.text if hasattr(response, "text") else str(response)
+            usage = response.usage if hasattr(response, "usage") else None
+        except Exception:
+            # If a single turn fails, continue with remaining turns
+            continue
+
+        tokens_this_turn = 0
+        if usage:
+            tokens_this_turn = getattr(usage, "input_tokens", 0) + getattr(
+                usage, "output_tokens", 0
+            )
+            all_usage.append(
+                {
+                    "agent": f"reactor_{agent.id}",
+                    "input_tokens": getattr(usage, "input_tokens", 0),
+                    "output_tokens": getattr(usage, "output_tokens", 0),
+                    "cost_usd": 0.0,
+                }
+            )
+
+        # Parse output and update state
+        record = kernel.parse_turn_output(agent, raw_output)
+        kernel.update_state(record, tokens_used=tokens_this_turn)
+
+        # Grow shared conversation thread
+        conversation.append({"role": "assistant", "content": raw_output})
+        conversation.append(
+            {
+                "role": "user",
+                "content": f"[Turn {turn_idx + 1} complete. "
+                f"Agent: {agent.name}. "
+                f"New constraints: {len(record['constraints'])}. "
+                f"Challenges: {len(record['challenges'])}.]",
+            }
+        )
+
+    # Harvest
+    reactor_state, reactor_trace = kernel.harvest()
+
+    return dict(reactor_state), dict(reactor_trace), all_usage
+
+
+def _build_prior_summary(conversation: list[dict[str, str]]) -> str:
+    """Build a brief summary of the prior conversation for agent context."""
+    if not conversation:
+        return "No prior conversation."
+
+    # Take last 4 messages (2 turns) for context
+    recent = conversation[-4:]
+    parts: list[str] = []
+    for msg in recent:
+        role = msg.get("role", "unknown")
+        content = msg.get("content", "")[:500]
+        parts.append(f"[{role}] {content}")
+    return "\n".join(parts)
+
+
 async def _synthesize_v10(
     state: ResearchState,
     caller: AgentCaller,
@@ -634,9 +784,8 @@ async def _synthesize_v10(
 ) -> dict:
     """V10 2-stage synthesis from KnowledgeArtifact.
 
-    Stage 1: Outline from artifact (1 Opus call)
-    Stage 2: Section drafts from clusters (N Sonnet calls in parallel)
-    Compose: intro/transitions/conclusion (1 call)
+    Phase A: Reactor deliberation (when SIA enabled + entropy_state present)
+    Phase B: 2-stage synthesis (outline + section drafts + composition)
     """
     artifact = state.get("knowledge_artifact", {})
     passages = state.get("source_passages", [])
@@ -651,13 +800,36 @@ async def _synthesize_v10(
     compose_caller = haiku_caller or caller
 
     all_usage: list = []
+    reactor_products: dict = {}
+    reactor_trace: dict = {}
     passage_map = {p.get("id", ""): p for p in passages if p.get("id")}
 
-    # --- Stage 1: Outline from KnowledgeArtifact ---
+    # --- Phase A: Reactor deliberation (optional) ---
+    entropy = state.get("entropy_state", {})
+    if entropy and artifact.get("clusters"):
+        try:
+            reactor_products, reactor_trace, reactor_usage = await _run_reactor(
+                state,
+                caller,
+                sonnet_caller=sonnet_caller,
+            )
+            all_usage.extend(reactor_usage)
+        except Exception:
+            # Reactor failure -> continue without reactor products
+            reactor_products = {}
+            reactor_trace = {}
+
+    # --- Phase B: 2-stage synthesis ---
     clusters = artifact.get("clusters", [])
     tensions = artifact.get("active_tensions", [])
     risks = artifact.get("structural_risks", [])
-    reactor_constraints = state.get("reactor_trace", {}).get("constraints", [])
+
+    # Reactor constraints from reactor products (Phase A) or state (from prior run)
+    reactor_constraints = reactor_products.get(
+        "constraints", state.get("reactor_trace", {}).get("constraints", [])
+    )
+    rejected_branches = reactor_products.get("rejected_branches", [])
+    active_frames = reactor_products.get("active_frames", [])
 
     cluster_summary = "\n".join(
         f"- {c.get('theme', 'unknown')} ({len(c.get('passage_ids', []))} passages, "
@@ -675,10 +847,19 @@ async def _synthesize_v10(
 
     risk_summary = "\n".join(f"- {r}" for r in risks) if risks else "No structural risks."
 
-    constraint_text = ""
+    # Build reactor context for the outline prompt
+    reactor_context = ""
     if reactor_constraints:
-        constraint_text = "\n\nReactor constraints:\n" + "\n".join(
+        reactor_context += "\n\nReactor constraints:\n" + "\n".join(
             f"- {c}" for c in reactor_constraints
+        )
+    if rejected_branches:
+        reactor_context += "\n\nRejected branches (do NOT pursue):\n" + "\n".join(
+            f"- {b}" for b in rejected_branches[:5]
+        )
+    if active_frames:
+        reactor_context += "\n\nActive frames (perspectives to incorporate):\n" + "\n".join(
+            f"- {f}" for f in active_frames[:5]
         )
 
     system = V10_OUTLINE_SYSTEM.format(
@@ -690,7 +871,7 @@ async def _synthesize_v10(
         f"Knowledge clusters:\n{cluster_summary}\n\n"
         f"Active tensions:\n{tension_summary}\n\n"
         f"Structural risks:\n{risk_summary}"
-        f"{constraint_text}"
+        f"{reactor_context}"
     )
 
     data, usage = await caller.call_json(
@@ -837,6 +1018,10 @@ async def _synthesize_v10(
         research_gaps,
     )
     result["token_usage"] = all_usage
+
+    # Include reactor trace if reactor ran
+    if reactor_trace:
+        result["reactor_trace"] = reactor_trace
 
     # Populate claim graph
     all_claims: list[dict] = []

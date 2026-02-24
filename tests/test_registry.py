@@ -88,7 +88,7 @@ class TestRegistryConstruction:
 
     def test_len(self):
         r = TunableRegistry()
-        assert len(r) == 24  # V9 (18) + V10 deliberation (6)
+        assert len(r) == 26  # V9 (18) + V10 deliberation (6)
 
     def test_contains(self):
         r = TunableRegistry()
@@ -249,7 +249,7 @@ class TestSnapshot:
 class TestCategoriesAndNames:
     def test_names_returns_all(self):
         r = TunableRegistry()
-        assert len(r.names()) == 24  # V9 (18) + V10 deliberation (6)
+        assert len(r.names()) == 26  # V9 (18) + V10 deliberation (6)
 
     def test_categories_groups_correctly(self):
         r = TunableRegistry()

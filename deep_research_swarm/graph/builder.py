@@ -720,13 +720,37 @@ def build_graph(
 
         return {"knowledge_artifact": dict(artifact)}
 
-    async def synthesize_node(state: ResearchState) -> dict:
-        return await synthesize(
+    async def synthesize_node(
+        state: ResearchState,
+        config: RunnableConfig | None = None,
+    ) -> dict:
+        result = await synthesize(
             state,
             opus_caller,
             sonnet_caller=sonnet_caller,
             haiku_caller=haiku_caller,
         )
+
+        # Stream reactor events if reactor ran
+        reactor_trace = result.pop("reactor_trace", None)
+        if reactor_trace:
+            result["reactor_trace"] = reactor_trace
+            writer = _get_stream_writer(config)
+            if writer:
+                try:
+                    writer(
+                        {
+                            "kind": "reactor_complete",
+                            "turns": reactor_trace.get("turns_executed", 0),
+                            "constraints": reactor_trace.get("constraints_produced", 0),
+                            "agents_used": reactor_trace.get("agents_used", []),
+                            "final_entropy": reactor_trace.get("final_entropy", 0),
+                        }
+                    )
+                except Exception:
+                    pass
+
+        return result
 
     async def critique_node(state: ResearchState) -> dict:
         return await critique(

@@ -562,7 +562,7 @@ class TestRegistryPhase2:
         from deep_research_swarm.adaptive.registry import TunableRegistry
 
         reg = TunableRegistry()
-        assert len(reg) == 24  # 18 V9 + 6 V10
+        assert len(reg) == 26  # 18 V9 + 6 V10 deliberation + 2 Phase 3 reactor
 
     def test_deliberation_category(self):
         from deep_research_swarm.adaptive.registry import TunableRegistry
