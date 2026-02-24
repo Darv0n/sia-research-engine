@@ -102,3 +102,60 @@ class TestV7BackendRegistryComplete:
         assert "semantic_scholar" in available
         assert "wayback" in available
         assert len(available) == 6
+
+
+class TestV10ConfigDefaults:
+    """V10 config field defaults (SIA + Swarm)."""
+
+    def test_sia_enabled_default_true(self):
+        s = Settings()
+        assert s.sia_enabled is True
+
+    def test_swarm_enabled_default_true(self):
+        s = Settings()
+        assert s.swarm_enabled is True
+
+    def test_swarm_max_reactors_default_5(self):
+        s = Settings()
+        assert s.swarm_max_reactors == 5
+
+    def test_sia_can_be_disabled(self):
+        s = Settings(sia_enabled=False)
+        assert s.sia_enabled is False
+
+    def test_swarm_can_be_disabled(self):
+        s = Settings(swarm_enabled=False)
+        assert s.swarm_enabled is False
+
+    def test_swarm_max_reactors_custom(self):
+        s = Settings(swarm_max_reactors=3)
+        assert s.swarm_max_reactors == 3
+
+
+class TestV10ConfigValidation:
+    """V10 swarm_max_reactors validation."""
+
+    def test_swarm_max_reactors_too_low(self):
+        s = Settings(swarm_max_reactors=1)
+        errors = s.validate()
+        assert any("SWARM_MAX_REACTORS" in e for e in errors)
+
+    def test_swarm_max_reactors_too_high(self):
+        s = Settings(swarm_max_reactors=11)
+        errors = s.validate()
+        assert any("SWARM_MAX_REACTORS" in e for e in errors)
+
+    def test_swarm_max_reactors_valid(self):
+        s = Settings(swarm_max_reactors=5)
+        errors = s.validate()
+        assert not any("SWARM_MAX_REACTORS" in e for e in errors)
+
+    def test_swarm_max_reactors_boundary_2(self):
+        s = Settings(swarm_max_reactors=2)
+        errors = s.validate()
+        assert not any("SWARM_MAX_REACTORS" in e for e in errors)
+
+    def test_swarm_max_reactors_boundary_10(self):
+        s = Settings(swarm_max_reactors=10)
+        errors = s.validate()
+        assert not any("SWARM_MAX_REACTORS" in e for e in errors)

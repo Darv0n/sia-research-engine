@@ -216,6 +216,20 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help="Execution mode: 'auto' (default) or 'hitl' (human-in-the-loop gates)",
     )
+    # V10 flags
+    parser.add_argument(
+        "--swarm",
+        type=int,
+        default=0,
+        metavar="N",
+        help="Run N parallel reactors in swarm mode (0=disabled, 2-5 recommended)",
+    )
+    parser.add_argument(
+        "--no-sia",
+        action="store_true",
+        default=False,
+        help="Disable SIA multi-agent deliberation (use V9 behavior)",
+    )
     # V9 flags
     parser.add_argument(
         "--format",
@@ -752,6 +766,21 @@ async def run(args: argparse.Namespace) -> None:
     if args.grobid_url:
         settings = dataclasses.replace(settings, grobid_url=args.grobid_url)
 
+    # V10: SIA/swarm overrides
+    if args.no_sia:
+        settings = dataclasses.replace(settings, sia_enabled=False)
+    swarm_n = args.swarm
+    if swarm_n == 1:
+        print("WARNING: --swarm requires N >= 2 for cross-validation. Disabled.", file=sys.stderr)
+        swarm_n = 0
+    if swarm_n > settings.swarm_max_reactors:
+        print(
+            f"WARNING: --swarm {swarm_n} exceeds max ({settings.swarm_max_reactors}). "
+            f"Capping at {settings.swarm_max_reactors}.",
+            file=sys.stderr,
+        )
+        swarm_n = settings.swarm_max_reactors
+
     # Disable archive if requested (before computing available_backends)
     if args.no_archive:
         settings = dataclasses.replace(settings, wayback_enabled=False)
@@ -838,15 +867,30 @@ async def run(args: argparse.Namespace) -> None:
             print(f"Researching: {args.question}", file=sys.stderr)
             print(f"Backends: {', '.join(backends)}", file=sys.stderr)
             print(f"Max iterations: {max_iter} | Token budget: {budget:,}", file=sys.stderr)
+            if settings.sia_enabled:
+                print("SIA: enabled", file=sys.stderr)
+            if swarm_n >= 2:
+                print(f"Swarm: {swarm_n} reactors", file=sys.stderr)
             print("---", file=sys.stderr)
 
-            result = await _execute(
-                graph,
-                initial_state,
-                config,
-                no_stream=args.no_stream,
-                verbose=args.verbose,
-            )
+            # V10: Swarm mode — run N parallel reactors
+            if swarm_n >= 2:
+                from deep_research_swarm.sia.swarm import SwarmOrchestrator
+
+                orchestrator = SwarmOrchestrator(settings, n_reactors=swarm_n)
+                result = await orchestrator.run(
+                    initial_state,
+                    enable_cache=not args.no_cache,
+                    mode=mode,
+                )
+            else:
+                result = await _execute(
+                    graph,
+                    initial_state,
+                    config,
+                    no_stream=args.no_stream,
+                    verbose=args.verbose,
+                )
     else:
         # No checkpointing
         graph = build_graph(
@@ -860,15 +904,30 @@ async def run(args: argparse.Namespace) -> None:
         print(f"Researching: {args.question}", file=sys.stderr)
         print(f"Backends: {', '.join(backends)}", file=sys.stderr)
         print(f"Max iterations: {max_iter} | Token budget: {budget:,}", file=sys.stderr)
+        if settings.sia_enabled:
+            print("SIA: enabled", file=sys.stderr)
+        if swarm_n >= 2:
+            print(f"Swarm: {swarm_n} reactors", file=sys.stderr)
         print("---", file=sys.stderr)
 
-        result = await _execute(
-            graph,
-            initial_state,
-            config,
-            no_stream=args.no_stream,
-            verbose=args.verbose,
-        )
+        # V10: Swarm mode — run N parallel reactors
+        if swarm_n >= 2:
+            from deep_research_swarm.sia.swarm import SwarmOrchestrator
+
+            orchestrator = SwarmOrchestrator(settings, n_reactors=swarm_n)
+            result = await orchestrator.run(
+                initial_state,
+                enable_cache=not args.no_cache,
+                mode=mode,
+            )
+        else:
+            result = await _execute(
+                graph,
+                initial_state,
+                config,
+                no_stream=args.no_stream,
+                verbose=args.verbose,
+            )
 
     if result is None:
         # Interrupted at HITL gate
@@ -882,6 +941,23 @@ async def run(args: argparse.Namespace) -> None:
         question=args.question,
         output_format=getattr(args, "format", "md"),
     )
+
+    # V10: Print swarm metadata
+    swarm_meta = result.get("swarm_metadata") if result else None
+    if swarm_meta:
+        print("\n--- Swarm Results ---", file=sys.stderr)
+        print(f"  Reactors: {swarm_meta.get('n_reactors', 0)}", file=sys.stderr)
+        print(f"  Winner: {swarm_meta.get('winner_id', '?')}", file=sys.stderr)
+        print(f"  Reason: {swarm_meta.get('selection_reason', '?')}", file=sys.stderr)
+        failed = swarm_meta.get("failed_reactors", [])
+        if failed:
+            print(f"  Failed: {', '.join(failed)}", file=sys.stderr)
+        total_tokens = swarm_meta.get("total_tokens_all", 0)
+        total_cost = swarm_meta.get("total_cost_all", 0.0)
+        print(
+            f"  Total (all reactors): {total_tokens:,} tokens | ${total_cost:.4f}",
+            file=sys.stderr,
+        )
 
     # V8: Print complexity profile
     if args.complexity:

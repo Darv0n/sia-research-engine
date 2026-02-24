@@ -112,6 +112,19 @@ class Settings:
     # GROBID server (V8, optional — for structured PDF extraction)
     grobid_url: str = field(default_factory=lambda: os.environ.get("GROBID_URL", ""))
 
+    # SIA (V10) — multi-agent deliberation
+    sia_enabled: bool = field(
+        default_factory=lambda: os.environ.get("SIA_ENABLED", "true").lower() == "true"
+    )
+
+    # Swarm (V10) — multi-reactor orchestration
+    swarm_enabled: bool = field(
+        default_factory=lambda: os.environ.get("SWARM_ENABLED", "true").lower() == "true"
+    )
+    swarm_max_reactors: int = field(
+        default_factory=lambda: int(os.environ.get("SWARM_MAX_REACTORS", "5"))
+    )
+
     def available_backends(self) -> list[str]:
         """Return list of backends that have valid configuration."""
         backends = ["searxng"]  # Always available (local)
@@ -145,6 +158,8 @@ class Settings:
             errors.append("POSTGRES_DSN is required when CHECKPOINT_BACKEND is 'postgres'")
         if self.mode not in ("auto", "hitl"):
             errors.append(f"MODE must be 'auto' or 'hitl', got '{self.mode}'")
+        if self.swarm_max_reactors < 2 or self.swarm_max_reactors > 10:
+            errors.append(f"SWARM_MAX_REACTORS must be 2-10, got {self.swarm_max_reactors}")
         return errors
 
     def warnings(self) -> list[str]:
