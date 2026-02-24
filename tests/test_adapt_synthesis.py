@@ -105,9 +105,7 @@ class TestAdaptSynthesisNode:
 
     def test_values_stay_within_bounds(self):
         state = {
-            "search_results": [
-                {"id": str(i), "backend": "searxng"} for i in range(100000)
-            ],
+            "search_results": [{"id": str(i), "backend": "searxng"} for i in range(100000)],
             "scored_documents": [{"id": str(i)} for i in range(500)],
         }
         result = adapt_synthesis_node(state)

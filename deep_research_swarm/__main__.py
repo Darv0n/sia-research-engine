@@ -170,6 +170,38 @@ def parse_args() -> argparse.Namespace:
         default=False,
         help="Disable Wayback Machine archive fallback for this run",
     )
+    # V8 flags
+    parser.add_argument(
+        "--no-adaptive",
+        action="store_true",
+        default=False,
+        help="Disable adaptive overseer (use static V7 defaults)",
+    )
+    parser.add_argument(
+        "--complexity",
+        action="store_true",
+        default=False,
+        help="Print complexity profile after research completes",
+    )
+    parser.add_argument(
+        "--export-prov-o",
+        type=str,
+        default=None,
+        metavar="PATH",
+        help="Export PROV-O JSON-LD provenance to file",
+    )
+    parser.add_argument(
+        "--embedding-model",
+        type=str,
+        default=None,
+        help="Override embedding model for grounding (default: from config)",
+    )
+    parser.add_argument(
+        "--grobid-url",
+        type=str,
+        default=None,
+        help="GROBID server URL for PDF extraction (default: from config)",
+    )
     # V6 flags
     parser.add_argument(
         "--no-log",
@@ -571,6 +603,14 @@ async def run(args: argparse.Namespace) -> None:
         print("ERROR: A research question is required.", file=sys.stderr)
         sys.exit(1)
 
+    # V8: Override adaptive settings from CLI flags
+    if args.no_adaptive:
+        settings = dataclasses.replace(settings, adaptive_mode=False)
+    if args.embedding_model:
+        settings = dataclasses.replace(settings, embedding_model=args.embedding_model)
+    if args.grobid_url:
+        settings = dataclasses.replace(settings, grobid_url=args.grobid_url)
+
     # Disable archive if requested (before computing available_backends)
     if args.no_archive:
         settings = dataclasses.replace(settings, wayback_enabled=False)
@@ -693,6 +733,33 @@ async def run(args: argparse.Namespace) -> None:
         return
 
     _output_report(result, output_path_override=args.output, question=args.question)
+
+    # V8: Print complexity profile
+    if args.complexity:
+        profile = result.get("complexity_profile", {})
+        if profile:
+            print("\n--- Complexity Profile ---", file=sys.stderr)
+            for k, v in profile.items():
+                print(f"  {k}: {v}", file=sys.stderr)
+        events = result.get("adaptation_events", [])
+        if events:
+            print(f"\n  {len(events)} adaptive adjustment(s) made", file=sys.stderr)
+
+    # V8: Export PROV-O JSON-LD
+    if args.export_prov_o:
+        from deep_research_swarm.reporting.prov_o import export_prov_o_jsonld
+
+        provenance_records = []
+        for sr in result.get("search_results", []):
+            prov = sr.get("provenance")
+            if prov:
+                provenance_records.append(prov)
+        prov_json = export_prov_o_jsonld(
+            provenance_records,
+            research_question=result.get("research_question", ""),
+        )
+        Path(args.export_prov_o).write_text(prov_json, encoding="utf-8")
+        print(f"PROV-O exported to: {args.export_prov_o}", file=sys.stderr)
 
     # Print event log path
     if event_log is not None:

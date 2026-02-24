@@ -149,8 +149,13 @@ class TestExtractClaims:
 class TestLinkClaimsToPassages:
     def test_basic_linking(self):
         claims = [
-            {"id": "cl-001", "citation_ids": ["[1]"], "text": "claim", "section_id": "s1",
-             "section_heading": "h1"},
+            {
+                "id": "cl-001",
+                "citation_ids": ["[1]"],
+                "text": "claim",
+                "section_id": "s1",
+                "section_heading": "h1",
+            },
         ]
         c2p = {"[1]": ["sp-001", "sp-002"]}
         result = link_claims_to_passages(claims, c2p)
@@ -158,8 +163,13 @@ class TestLinkClaimsToPassages:
 
     def test_multiple_citations(self):
         claims = [
-            {"id": "cl-001", "citation_ids": ["[1]", "[2]"], "text": "claim",
-             "section_id": "s1", "section_heading": "h1"},
+            {
+                "id": "cl-001",
+                "citation_ids": ["[1]", "[2]"],
+                "text": "claim",
+                "section_id": "s1",
+                "section_heading": "h1",
+            },
         ]
         c2p = {"[1]": ["sp-001"], "[2]": ["sp-002"]}
         result = link_claims_to_passages(claims, c2p)
@@ -168,8 +178,13 @@ class TestLinkClaimsToPassages:
 
     def test_deduplicates_passage_ids(self):
         claims = [
-            {"id": "cl-001", "citation_ids": ["[1]", "[2]"], "text": "claim",
-             "section_id": "s1", "section_heading": "h1"},
+            {
+                "id": "cl-001",
+                "citation_ids": ["[1]", "[2]"],
+                "text": "claim",
+                "section_id": "s1",
+                "section_heading": "h1",
+            },
         ]
         # Both citations point to same passage
         c2p = {"[1]": ["sp-001"], "[2]": ["sp-001"]}
@@ -178,8 +193,13 @@ class TestLinkClaimsToPassages:
 
     def test_missing_citation(self):
         claims = [
-            {"id": "cl-001", "citation_ids": ["[99]"], "text": "claim",
-             "section_id": "s1", "section_heading": "h1"},
+            {
+                "id": "cl-001",
+                "citation_ids": ["[99]"],
+                "text": "claim",
+                "section_id": "s1",
+                "section_heading": "h1",
+            },
         ]
         c2p = {"[1]": ["sp-001"]}
         result = link_claims_to_passages(claims, c2p)
@@ -200,10 +220,20 @@ class TestPopulateClaimIds:
             _make_passage("content b", pid="sp-002"),
         ]
         claims = [
-            {"id": "cl-001", "citation_ids": ["[1]"], "text": "claim 1",
-             "section_id": "s1", "section_heading": "h1"},
-            {"id": "cl-002", "citation_ids": ["[2]"], "text": "claim 2",
-             "section_id": "s1", "section_heading": "h1"},
+            {
+                "id": "cl-001",
+                "citation_ids": ["[1]"],
+                "text": "claim 1",
+                "section_id": "s1",
+                "section_heading": "h1",
+            },
+            {
+                "id": "cl-002",
+                "citation_ids": ["[2]"],
+                "text": "claim 2",
+                "section_id": "s1",
+                "section_heading": "h1",
+            },
         ]
         c2p = {"[1]": ["sp-001"], "[2]": ["sp-001", "sp-002"]}
         updated = populate_claim_ids(passages, claims, c2p)
@@ -218,8 +248,13 @@ class TestPopulateClaimIds:
     def test_does_not_mutate_input(self):
         passages = [_make_passage("content", pid="sp-001")]
         claims = [
-            {"id": "cl-001", "citation_ids": ["[1]"], "text": "claim",
-             "section_id": "s1", "section_heading": "h1"},
+            {
+                "id": "cl-001",
+                "citation_ids": ["[1]"],
+                "text": "claim",
+                "section_id": "s1",
+                "section_heading": "h1",
+            },
         ]
         c2p = {"[1]": ["sp-001"]}
         _ = populate_claim_ids(passages, claims, c2p)

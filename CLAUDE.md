@@ -2,15 +2,15 @@
 
 ## Current State
 
-- **Version**: V7 (niche retrieval: scholarly backends, archive fallback, citation chaining, provenance, grounded synthesis)
-- **Tests**: 480 passing (run with `.venv/Scripts/python.exe -m pytest tests/ -v`)
+- **Version**: V8 (adaptive intelligence: tunable overseer, second-pass grounding, embedding grounding, claim graph, OCR/GROBID, PROV-O)
+- **Tests**: 710+ passing (run with `.venv/Scripts/python.exe -m pytest tests/ -v`)
 - **Repo**: https://github.com/Darv0n/deep-research-swarm.git
 
 ## Architecture
 
 LangGraph StateGraph orchestrating multi-agent research pipeline:
 ```
-health_check -> plan -> [plan_gate?] -> search -> extract -> chunk_passages -> score -> citation_chain -> contradiction -> synthesize -> critique -> rollup_budget -> [converge?] -> report -> [report_gate?]
+health_check -> plan -> [plan_gate?] -> search -> adapt_extraction -> extract -> chunk_passages -> score -> adapt_synthesis -> citation_chain -> contradiction -> synthesize -> critique -> rollup_budget -> [converge?] -> report -> [report_gate?]
 ```
 Gate nodes (`plan_gate`, `report_gate`) only present when `--mode hitl` and checkpointer is active.
 
@@ -20,6 +20,20 @@ Gate nodes (`plan_gate`, `report_gate`) only present when `--mode hitl` and chec
 - `config.py` — All settings from env vars (frozen dataclass)
 - `graph/state.py` — ResearchState TypedDict with annotated reducers
 - `graph/builder.py` — Graph construction, node closures, edge wiring
+
+### V8 Additions
+- `adaptive/registry.py` — TunableRegistry with 15 bounded tunables (floor/ceiling, snapshot/restore)
+- `adaptive/complexity.py` — Complexity analyzer: volume/backend/iteration factors -> multiplier (0.5-2.0)
+- `adaptive/adapt_extraction.py` — Overseer node: scales extraction_cap, results_per_query, content_truncation_chars
+- `adaptive/adapt_synthesis.py` — Overseer node: scales citation_chain_budget, contradiction_max_docs, max_sections, budget pacing
+- `scoring/embedding_grounding.py` — EmbeddingProvider protocol + FastEmbedProvider (fastembed, ONNX), method="embedding_v1"
+- `scoring/claim_graph.py` — Claim extraction, claim-to-passage linking, SourcePassage.claim_ids population (OE1)
+- `scoring/grounding.py` — Second-pass grounding with semantic neighborhood reassessment, method="neighborhood_v1"
+- `extractors/grobid_extractor.py` — GROBID TEI XML extraction (structured sections + references)
+- `extractors/ocr_extractor.py` — PaddleOCR fallback for scanned PDFs
+- `memory/incremental.py` — Content-hash diffing for incremental research (OE2)
+- `reporting/prov_o.py` — PROV-O JSON-LD export (W3C provenance model)
+- `reporting/adaptive_section.py` — Adaptive adjustments report section
 
 ### V7 Additions
 - `backends/openalex.py` — OpenAlex scholarly search backend (abstract reconstruction from inverted index)
@@ -47,11 +61,13 @@ Gate nodes (`plan_gate`, `report_gate`) only present when `--mode hitl` and chec
 SubQuery, SearchResult, ExtractedContent, ScoredDocument, GraderScores,
 SectionDraft, Citation, ResearchGap, TokenUsage, Contradiction,
 DiversityMetrics, SectionConfidenceSnapshot, RunEvent, IterationRecord, ResearchMemory,
-ProvenanceRecord, ScholarlyMetadata, ArchiveCapture, SourcePassage, SectionOutline, IndexedContent
+ProvenanceRecord, ScholarlyMetadata, ArchiveCapture, SourcePassage, SectionOutline, IndexedContent,
+Tunable, ComplexityProfile, AdaptationEvent
 
 ### State Fields (graph/state.py)
 - Accumulating (operator.add): search_backends, perspectives, sub_queries, search_results, extracted_contents, token_usage, iteration_history, source_passages, citation_chain_results
-- Replace-last-write: scored_documents, diversity_metrics, section_drafts, citations, contradictions, research_gaps, current_iteration, converged, convergence_reason, total_tokens_used, total_cost_usd, final_report, memory_context, citation_to_passage_map
+- Replace-last-write: scored_documents, diversity_metrics, section_drafts, citations, contradictions, research_gaps, current_iteration, converged, convergence_reason, total_tokens_used, total_cost_usd, final_report, memory_context, citation_to_passage_map, tunable_snapshot, complexity_profile
+- V8 accumulating: adaptation_events
 
 ## Conventions
 
@@ -81,6 +97,11 @@ ProvenanceRecord, ScholarlyMetadata, ArchiveCapture, SourcePassage, SectionOutli
 - `--mode auto|hitl` — Execution mode (auto = default, hitl = human-in-the-loop gates)
 - `--academic` — Add openalex and semantic_scholar to backends for this run
 - `--no-archive` — Disable Wayback Machine archive fallback for this run
+- `--no-adaptive` — Disable adaptive overseer (use static V7 defaults)
+- `--complexity` — Print complexity profile after research completes
+- `--export-prov-o PATH` — Export PROV-O JSON-LD provenance to file
+- `--embedding-model MODEL` — Override embedding model for grounding
+- `--grobid-url URL` — GROBID server URL for PDF extraction
 
 ## Config Vars
 
@@ -109,25 +130,25 @@ ProvenanceRecord, ScholarlyMetadata, ArchiveCapture, SourcePassage, SectionOutli
 - `S2_API_KEY` — Semantic Scholar API key (optional; works unauthenticated)
 - `WAYBACK_ENABLED` — Enable Wayback Machine backend (default: `true`)
 - `WAYBACK_TIMEOUT` — Wayback request timeout in seconds (default: `15`)
+- `ADAPTIVE_MODE` — Enable adaptive overseer (default: `true`)
+- `EMBEDDING_MODEL` — Embedding model for grounding (default: `BAAI/bge-small-en-v1.5`)
+- `GROBID_URL` — GROBID server URL for structured PDF extraction (default: empty/disabled)
 
 ## Testing
 
 ```bash
-.venv/Scripts/python.exe -m pytest tests/ -v                    # All 480 tests
+.venv/Scripts/python.exe -m pytest tests/ -v                    # All 710+ tests
 .venv/Scripts/python.exe -m pytest tests/ -k "not integration"  # Unit only
 .venv/Scripts/python.exe -m ruff check . && .venv/Scripts/python.exe -m ruff format --check .
 ```
 
-## Deferred to V8
+## Deferred to V9
 
 - **Internal hybrid index** — OpenSearch k-NN (IndexedContent stub is the handshake)
 - **Focused crawling** — priority frontier for deep site exploration
-- **OCR / GROBID** — scanned PDF support
 - **Embedding-based routing** — upgrade keyword heuristic to vector classification
-- **Embedding-based passage retrieval** — upgrade Jaccard grounding (method field enables coexistence)
-- **PROV-O JSON-LD export** — ProvenanceRecord is the foundation
 - **MCP Memory server** — live server, not just export
-- **Claim graph** — via SourcePassage.claim_ids
-- **Incremental research** — content_hash-based passage IDs for diff-only updates
 - **Per-claim confidence visualization** — via claim_details
 - **Memory pruning** — automatic cleanup of old/low-value records
+- **Live GROBID integration test** — requires running GROBID Docker container
+- **Planner integration for incremental research** — wire filter_unchanged_sources() into planner skip logic

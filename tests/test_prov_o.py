@@ -71,9 +71,7 @@ class TestExportProvOJsonld:
         assert entities[0]["drs:contentHash"] == "deadbeef"
 
     def test_research_question_included(self):
-        doc = json.loads(
-            export_prov_o_jsonld([_make_prov()], research_question="What is quantum?")
-        )
+        doc = json.loads(export_prov_o_jsonld([_make_prov()], research_question="What is quantum?"))
         assert doc["drs:researchQuestion"] == "What is quantum?"
 
     def test_run_id_in_agent(self):

@@ -86,16 +86,12 @@ def compute_profile_from_state(state: dict) -> ComplexityProfile:
 
     # Mean grounding score across sections
     grounding_scores = [
-        s.get("grounding_score", 0.0)
-        for s in section_drafts
-        if "grounding_score" in s
+        s.get("grounding_score", 0.0) for s in section_drafts if "grounding_score" in s
     ]
     mean_grounding = sum(grounding_scores) / max(len(grounding_scores), 1)
 
     # Token spend rate
-    total_tokens = sum(
-        u.get("input_tokens", 0) + u.get("output_tokens", 0) for u in token_usage
-    )
+    total_tokens = sum(u.get("input_tokens", 0) + u.get("output_tokens", 0) for u in token_usage)
     spend_rate = total_tokens / max(token_budget, 1)
 
     # Backend count

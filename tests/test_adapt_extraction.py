@@ -112,9 +112,7 @@ class TestAdaptExtractionNode:
     def test_values_stay_within_bounds(self):
         """Even with extreme inputs, tunables must stay within bounds."""
         state = {
-            "search_results": [
-                {"id": str(i), "backend": "searxng"} for i in range(100000)
-            ],
+            "search_results": [{"id": str(i), "backend": "searxng"} for i in range(100000)],
         }
         result = adapt_extraction_node(state)
         snap = result["tunable_snapshot"]

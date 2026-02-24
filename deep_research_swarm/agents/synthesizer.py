@@ -600,34 +600,50 @@ async def synthesize(state: ResearchState, caller: AgentCaller) -> dict:
 
     # --- Stage 1: Generate outline ---
     sections, outline_data, usage = await _generate_outline(
-        state, caller,
-        max_sections=max_secs, min_sections=min_secs, max_docs_for_outline=max_docs_outline,
+        state,
+        caller,
+        max_sections=max_secs,
+        min_sections=min_secs,
+        max_docs_for_outline=max_docs_outline,
     )
     all_usage.extend(usage)
 
     # --- Stage 0: Validate outline ---
     is_valid, failures = _validate_outline(
-        sections, passages, scored_docs,
-        max_sections=max_secs, min_sections=min_secs, max_passages_per_section=max_pp_sec,
+        sections,
+        passages,
+        scored_docs,
+        max_sections=max_secs,
+        min_sections=min_secs,
+        max_passages_per_section=max_pp_sec,
     )
 
     if not is_valid:
         # One revision pass
         sections, outline_data, usage = await _generate_outline(
-            state, caller,
+            state,
+            caller,
             revision_failures=failures,
-            max_sections=max_secs, min_sections=min_secs, max_docs_for_outline=max_docs_outline,
+            max_sections=max_secs,
+            min_sections=min_secs,
+            max_docs_for_outline=max_docs_outline,
         )
         all_usage.extend(usage)
 
         is_valid, failures = _validate_outline(
-            sections, passages, scored_docs,
-            max_sections=max_secs, min_sections=min_secs, max_passages_per_section=max_pp_sec,
+            sections,
+            passages,
+            scored_docs,
+            max_sections=max_secs,
+            min_sections=min_secs,
+            max_passages_per_section=max_pp_sec,
         )
         if not is_valid:
             # Drop sections with no assignable passages
             section_passages_check = assign_passages_to_sections(
-                sections, passages, max_passages_per_section=max_pp_sec,
+                sections,
+                passages,
+                max_passages_per_section=max_pp_sec,
             )
             sections = [s for s in sections if section_passages_check.get(s["heading"])]
 
@@ -653,7 +669,9 @@ async def synthesize(state: ResearchState, caller: AgentCaller) -> dict:
 
     # --- Assign passages to sections ---
     section_passages = assign_passages_to_sections(
-        sections, passages, max_passages_per_section=max_pp_sec,
+        sections,
+        passages,
+        max_passages_per_section=max_pp_sec,
     )
 
     # Iteration 2+: keep HIGH grounding sections from previous iteration

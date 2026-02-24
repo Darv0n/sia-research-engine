@@ -26,9 +26,7 @@ _DEFAULTS: list[Tunable] = [
         category="extraction",
     ),
     # Scoring
-    Tunable(
-        name="contradiction_max_docs", default=10, floor=5, ceiling=30, category="scoring"
-    ),
+    Tunable(name="contradiction_max_docs", default=10, floor=5, ceiling=30, category="scoring"),
     Tunable(
         name="budget_exhaustion_pct",
         default=0.9,
@@ -37,9 +35,7 @@ _DEFAULTS: list[Tunable] = [
         category="scoring",
     ),
     # Grounding
-    Tunable(
-        name="jaccard_threshold", default=0.3, floor=0.15, ceiling=0.5, category="grounding"
-    ),
+    Tunable(name="jaccard_threshold", default=0.3, floor=0.15, ceiling=0.5, category="grounding"),
     Tunable(
         name="grounding_pass_threshold",
         default=0.8,
@@ -47,9 +43,7 @@ _DEFAULTS: list[Tunable] = [
         ceiling=0.95,
         category="grounding",
     ),
-    Tunable(
-        name="max_refinement_attempts", default=2, floor=1, ceiling=5, category="grounding"
-    ),
+    Tunable(name="max_refinement_attempts", default=2, floor=1, ceiling=5, category="grounding"),
     Tunable(
         name="max_passages_per_section",
         default=8,
@@ -58,24 +52,14 @@ _DEFAULTS: list[Tunable] = [
         category="grounding",
     ),
     # Search
-    Tunable(
-        name="citation_chain_budget", default=50, floor=20, ceiling=150, category="search"
-    ),
-    Tunable(
-        name="citation_chain_max_hops", default=2, floor=1, ceiling=4, category="search"
-    ),
-    Tunable(
-        name="citation_chain_top_seeds", default=5, floor=3, ceiling=15, category="search"
-    ),
-    Tunable(
-        name="results_per_query", default=10, floor=5, ceiling=30, category="search"
-    ),
+    Tunable(name="citation_chain_budget", default=50, floor=20, ceiling=150, category="search"),
+    Tunable(name="citation_chain_max_hops", default=2, floor=1, ceiling=4, category="search"),
+    Tunable(name="citation_chain_top_seeds", default=5, floor=3, ceiling=15, category="search"),
+    Tunable(name="results_per_query", default=10, floor=5, ceiling=30, category="search"),
     # Synthesis
     Tunable(name="min_sections", default=3, floor=2, ceiling=5, category="synthesis"),
     Tunable(name="max_sections", default=7, floor=4, ceiling=12, category="synthesis"),
-    Tunable(
-        name="max_docs_for_outline", default=20, floor=10, ceiling=50, category="synthesis"
-    ),
+    Tunable(name="max_docs_for_outline", default=20, floor=10, ceiling=50, category="synthesis"),
 ]
 
 

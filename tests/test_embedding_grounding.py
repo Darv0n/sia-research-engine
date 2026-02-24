@@ -125,9 +125,7 @@ class TestVerifyGroundingEmbedding:
     def test_returns_method_embedding_v1(self):
         """I7: method="embedding_v1" for coexistence with jaccard_v1."""
         provider = FakeEmbeddingProvider()
-        _, _, method = verify_grounding_embedding(
-            "test", _make_passage("test"), provider
-        )
+        _, _, method = verify_grounding_embedding("test", _make_passage("test"), provider)
         assert method == "embedding_v1"
 
     def test_custom_threshold(self):
@@ -140,9 +138,7 @@ class TestVerifyGroundingEmbedding:
             claim, passage, provider, threshold=0.999
         )
         # With very low threshold, should be grounded
-        grounded_lax, _, _ = verify_grounding_embedding(
-            claim, passage, provider, threshold=0.01
-        )
+        grounded_lax, _, _ = verify_grounding_embedding(claim, passage, provider, threshold=0.01)
         assert grounded_lax is True
         # strict might or might not pass depending on fake provider scores
 

@@ -304,9 +304,7 @@ class TestCustomRegistration:
 
     def test_register_overwrites_existing(self):
         r = TunableRegistry()
-        t = Tunable(
-            name="extraction_cap", default=50, floor=10, ceiling=200, category="extraction"
-        )
+        t = Tunable(name="extraction_cap", default=50, floor=10, ceiling=200, category="extraction")
         r.register(t)
         assert r.get("extraction_cap") == 50
         assert r.get_definition("extraction_cap")["ceiling"] == 200

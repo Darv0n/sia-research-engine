@@ -4,6 +4,35 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.8.0] - 2026-02-23
+
+### Added
+- **Adaptive overseer**: Deterministic control loop that observes pipeline metrics and adjusts thresholds mid-run within bounded ranges (I5, I6)
+  - `TunableRegistry` with 15 bounded tunables (floor/ceiling clamping, snapshot/restore)
+  - `compute_complexity_profile()` — volume, backend, iteration factors -> multiplier (0.5-2.0)
+  - `adapt_extraction` node (search -> adapt_extraction -> extract) — scales extraction_cap, results_per_query, content_truncation_chars
+  - `adapt_synthesis` node (score -> adapt_synthesis -> citation_chain) — scales citation_chain_budget, contradiction_max_docs, max_sections, budget_exhaustion_pct with token pacing
+  - All 10+ pipeline nodes read tunables from `state["tunable_snapshot"]` with backward-compatible fallbacks to V7 defaults
+- **Second-pass grounding**: Semantic neighborhood reassessment for borderline passages (Jaccard 0.15-0.30) — rescued when 2+ accepted passages share vocabulary, method="neighborhood_v1" (I7)
+- **Embedding-based grounding**: `EmbeddingProvider` protocol + `FastEmbedProvider` (fastembed, ONNX, MIT), method="embedding_v1" coexists with "jaccard_v1" per I7/OE5, optional dep `pip install .[embeddings]`
+- **Claim graph**: `extract_claims_from_section()`, `link_claims_to_passages()`, `populate_claim_ids()` — populates SourcePassage.claim_ids (OE1 stub)
+- **OCR/GROBID extraction cascade** (I8): GROBID TEI XML extraction with structured sections + reference lists, PaddleOCR fallback for scanned PDFs, cascade: PDF -> GROBID -> OCR -> Crawl4AI -> Trafilatura -> Wayback
+- **Incremental research**: `compute_content_diff()` and `filter_unchanged_sources()` using ProvenanceRecord.content_hash (OE2) for skip-on-rerun
+- **PROV-O JSON-LD export**: W3C provenance model mapping ProvenanceRecord to prov:Entity/Activity/Agent
+- **Adaptive report section**: Complexity multiplier and tunable adjustment table in rendered reports
+- CLI flags: `--no-adaptive`, `--complexity`, `--export-prov-o`, `--embedding-model`, `--grobid-url`
+- Config: `ADAPTIVE_MODE`, `EMBEDDING_MODEL`, `GROBID_URL`
+- Optional deps: `pip install .[embeddings]` (fastembed), `pip install .[ocr]` (paddleocr)
+- New TypedDicts: Tunable, ComplexityProfile, AdaptationEvent
+- New state fields: tunable_snapshot, adaptation_events, complexity_profile
+- 230+ new tests (710+ total)
+
+### Changed
+- Graph topology: search -> **adapt_extraction** -> extract, score -> **adapt_synthesis** -> citation_chain
+- All pipeline nodes read thresholds from tunable_snapshot instead of hardcoded constants
+- Extraction cascade extended with GROBID and OCR stages
+- Synthesizer populates claim graph after output assembly
+
 ## [0.7.0] - 2026-02-23
 
 ### Added

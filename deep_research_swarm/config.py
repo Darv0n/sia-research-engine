@@ -103,15 +103,11 @@ class Settings:
 
     # Embedding model (V8, optional — only used when fastembed installed)
     embedding_model: str = field(
-        default_factory=lambda: os.environ.get(
-            "EMBEDDING_MODEL", "BAAI/bge-small-en-v1.5"
-        )
+        default_factory=lambda: os.environ.get("EMBEDDING_MODEL", "BAAI/bge-small-en-v1.5")
     )
 
     # GROBID server (V8, optional — for structured PDF extraction)
-    grobid_url: str = field(
-        default_factory=lambda: os.environ.get("GROBID_URL", "")
-    )
+    grobid_url: str = field(default_factory=lambda: os.environ.get("GROBID_URL", ""))
 
     def available_backends(self) -> list[str]:
         """Return list of backends that have valid configuration."""

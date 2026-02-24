@@ -239,7 +239,9 @@ def build_graph(
 
         tasks = [
             search_sub_query(
-                sq, backend_configs=backend_configs, cache=search_cache,
+                sq,
+                backend_configs=backend_configs,
+                cache=search_cache,
                 num_results=num_results,
             )
             for sq in latest_queries

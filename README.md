@@ -619,7 +619,8 @@ No inheritance required — the Protocol uses structural subtyping (PEP 544).
 - [x] **V5** — Memory & state: cross-session research memory (JSON-backed Jaccard search), `--dump-state`, `--list-memories`, `--export-mcp`, extracted text utilities, memory lifecycle in CLI
 - [x] **V6** — Forensic mode: human-in-the-loop gates (`--mode hitl` with LangGraph `interrupt()`), run event log (JSONL per run), evidence map appendix (claim-to-source mapping), robust JSON extraction for agent responses
 - [x] **V7** — Niche retrieval: scholarly backends (OpenAlex, Semantic Scholar), archive fallback (Wayback Machine), citation chaining (BFS via S2), passage chunking, mechanical grounding verification, backend routing, provenance tracking, outline-first synthesis with parallel drafting
-- [ ] **V8** — Planned: internal hybrid index (OpenSearch k-NN), focused crawling, OCR/GROBID for scanned PDFs, embedding-based routing and retrieval, MCP Memory server (live)
+- [x] **V8** — Adaptive intelligence: deterministic overseer (TunableRegistry + complexity multiplier), second-pass grounding (semantic neighborhood), embedding grounding (fastembed), claim graph, OCR/GROBID extraction cascade, incremental research, PROV-O JSON-LD export, adaptive report section
+- [ ] **V9** — Planned: internal hybrid index (OpenSearch k-NN), focused crawling, embedding-based routing, MCP Memory server (live), memory pruning
 
 ## License
 
