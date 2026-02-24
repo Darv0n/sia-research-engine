@@ -3,7 +3,7 @@
 ## Current State
 
 - **Version**: V9 (competitive parity: reactive search, query volume, pre-research clarification, multi-format export, rich streaming, follow-up questions)
-- **Tests**: 757+ passing (run with `.venv/Scripts/python.exe -m pytest tests/ -v`)
+- **Tests**: 777+ passing (run with `.venv/Scripts/python.exe -m pytest tests/ -v`)
 - **Repo**: https://github.com/Darv0n/deep-research-swarm.git
 
 ## Architecture
@@ -156,7 +156,7 @@ Tunable, ComplexityProfile, AdaptationEvent
 ## Testing
 
 ```bash
-.venv/Scripts/python.exe -m pytest tests/ -v                    # All 757+ tests
+.venv/Scripts/python.exe -m pytest tests/ -v                    # All 777+ tests
 .venv/Scripts/python.exe -m pytest tests/ -k "not integration"  # Unit only
 .venv/Scripts/python.exe -m ruff check . && .venv/Scripts/python.exe -m ruff format --check .
 ```
