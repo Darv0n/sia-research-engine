@@ -803,10 +803,14 @@ def build_graph(
         }
 
         if state.get("converged", False):
+            # Max-iterations is an unconditional ceiling — never veto it
+            conv_reason = state.get("convergence_reason", "")
+            if "max_iterations_reached" in conv_reason or "budget" in conv_reason:
+                pass  # absolute ceiling, no entropy override
             # Five-way convergence check (V10 Phase 4):
             # confidence AND entropy_gate AND NOT false_convergence
             # AND NOT dominance AND singularity_safe
-            if not gate_ok:
+            elif not gate_ok:
                 result["converged"] = False
                 result["convergence_reason"] = f"entropy_veto: {gate_reason}"
             elif false_conv:
@@ -876,8 +880,8 @@ def build_graph(
     async def rollup_budget_node(state: ResearchState) -> dict:
         """Roll up token_usage list into totals for budget tracking."""
         usage_list = state.get("token_usage", [])
-        total_tokens = sum(u["input_tokens"] + u["output_tokens"] for u in usage_list)
-        total_cost = sum(u["cost_usd"] for u in usage_list)
+        total_tokens = sum(u.get("input_tokens", 0) + u.get("output_tokens", 0) for u in usage_list)
+        total_cost = sum(u.get("cost_usd", 0.0) for u in usage_list)
         return {
             "total_tokens_used": total_tokens,
             "total_cost_usd": round(total_cost, 6),

@@ -596,6 +596,7 @@ Output STRICT JSON (no markdown, no commentary):
 }}
 
 Rules:
+- cluster_ids MUST use the EXACT IDs provided (e.g. "cluster-a1b2c3d4ef"). Do NOT invent IDs.
 - Every claim must be supported by the referenced clusters' verified claims.
 - Structural risks must be acknowledged, not hidden.
 - Active tensions get their own section or subsection.
@@ -825,9 +826,9 @@ async def _synthesize_v10(
     active_frames = reactor_products.get("active_frames", [])
 
     cluster_summary = "\n".join(
-        f"- {c.get('theme', 'unknown')} ({len(c.get('passage_ids', []))} passages, "
-        f"{len(c.get('claims', []))} claims)"
-        for c in clusters
+        f"- [{c.get('cluster_id', f'cluster-{i}')}] {c.get('theme', 'unknown')} "
+        f"({len(c.get('passage_ids', []))} passages, {len(c.get('claims', []))} claims)"
+        for i, c in enumerate(clusters)
     )
 
     tension_summary = (
@@ -890,6 +891,25 @@ async def _synthesize_v10(
         ]
 
     # --- Stage 2: Section drafts from clusters (parallel Sonnet) ---
+
+    # Build cluster lookup maps for exact ID and fuzzy theme matching
+    cluster_by_id = {c.get("cluster_id", ""): c for c in clusters}
+    cluster_by_theme = {c.get("theme", "").lower().strip(): c for c in clusters}
+
+    def _resolve_cluster(cid: str) -> dict | None:
+        """Resolve a cluster ID — exact match first, then fuzzy theme match."""
+        if cid in cluster_by_id:
+            return cluster_by_id[cid]
+        # LLM may have used theme text instead of ID
+        cid_lower = cid.lower().strip()
+        if cid_lower in cluster_by_theme:
+            return cluster_by_theme[cid_lower]
+        # Substring match on theme
+        for theme_key, c in cluster_by_theme.items():
+            if cid_lower in theme_key or theme_key in cid_lower:
+                return c
+        return None
+
     async def _draft_v10_section(sec: dict) -> tuple[dict, list]:
         # Gather passages from referenced clusters
         cluster_ids = sec.get("cluster_ids", [])
@@ -897,13 +917,12 @@ async def _synthesize_v10(
         cluster_text_parts: list[str] = []
 
         for cid in cluster_ids:
-            for c in clusters:
-                if c.get("cluster_id") == cid:
-                    for pid in c.get("passage_ids", [])[:10]:
-                        if pid in passage_map:
-                            section_passages.append(passage_map[pid])
-                    cluster_text_parts.append(c.get("summary", ""))
-                    break
+            c = _resolve_cluster(cid)
+            if c:
+                for pid in c.get("passage_ids", [])[:10]:
+                    if pid in passage_map:
+                        section_passages.append(passage_map[pid])
+                cluster_text_parts.append(c.get("summary", ""))
 
         if not section_passages:
             return {
@@ -951,12 +970,11 @@ async def _synthesize_v10(
         cluster_ids = sec.get("cluster_ids", [])
         sec_passages: list[SourcePassage] = []
         for cid in cluster_ids:
-            for c in clusters:
-                if c.get("cluster_id") == cid:
-                    for pid in c.get("passage_ids", [])[:10]:
-                        if pid in passage_map:
-                            sec_passages.append(passage_map[pid])
-                    break
+            c = _resolve_cluster(cid)
+            if c:
+                for pid in c.get("passage_ids", [])[:10]:
+                    if pid in passage_map:
+                        sec_passages.append(passage_map[pid])
         section_passages_map[heading] = sec_passages
 
     citation_map, citation_to_passage_map = _build_global_citation_map(
