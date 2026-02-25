@@ -95,7 +95,7 @@ def cluster_by_heading(
     # Group by heading first, then by domain
     groups: dict[str, list[int]] = {}
     for i, p in enumerate(passages):
-        heading = p.get("heading", "")
+        heading = p.get("heading_context", "")
         if heading:
             key = _normalize_heading(heading)
         else:
@@ -117,7 +117,7 @@ def cluster_by_heading(
 
     # Distribute overflow into existing clusters or create final cluster
     if overflow:
-        if clusters and len(clusters) >= max_clusters:
+        if len(clusters) >= max_clusters:
             clusters[-1].extend(overflow)
         else:
             clusters.append(overflow)
@@ -151,7 +151,7 @@ def rank_passages_in_cluster(
 
 def _passage_text(p: SourcePassage) -> str:
     """Extract representative text from a passage for embedding."""
-    heading = p.get("heading", "")
+    heading = p.get("heading_context", "")
     content = p.get("content", "")
     # Combine heading + first 500 chars of content
     text = f"{heading}: {content[:500]}" if heading else content[:500]
@@ -190,7 +190,7 @@ def _format_clusters(
         passage_ids = [passages[idx].get("id", f"p-{idx}") for idx in indices]
         # Theme from first passage heading or domain
         first = passages[indices[0]] if indices else {}
-        theme = first.get("heading", _extract_domain(first.get("source_url", "")))
+        theme = first.get("heading_context", _extract_domain(first.get("source_url", "")))
         cid = hashlib.sha256(",".join(sorted(passage_ids)).encode()).hexdigest()[:10]
 
         result.append(

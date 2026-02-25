@@ -74,3 +74,36 @@ class TestV10FlagCombinations:
             args = parse_args()
             assert args.swarm == 2
             assert args.format == "pdf"
+
+
+class TestSwarmEnabledConfig:
+    """C9 regression: SWARM_ENABLED config must be honored in runtime logic."""
+
+    def test_swarm_enabled_field_exists(self):
+        from deep_research_swarm.config import Settings
+
+        s = Settings()
+        assert hasattr(s, "swarm_enabled")
+
+    def test_swarm_enabled_default_true(self):
+        from deep_research_swarm.config import Settings
+
+        s = Settings()
+        assert s.swarm_enabled is True
+
+    def test_swarm_enabled_false_override(self):
+        from deep_research_swarm.config import Settings
+
+        s = Settings(swarm_enabled=False)
+        assert s.swarm_enabled is False
+
+    def test_swarm_disabled_check_in_main(self):
+        """The __main__.py must check swarm_enabled before running swarm."""
+        import inspect
+
+        from deep_research_swarm.__main__ import run
+
+        source = inspect.getsource(run)
+        assert "swarm_enabled" in source, (
+            "run() must check settings.swarm_enabled to honor SWARM_ENABLED env var"
+        )

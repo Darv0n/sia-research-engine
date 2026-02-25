@@ -409,7 +409,9 @@ def _renumber_section_content(content: str, section_map: dict[str, str]) -> str:
     placeholders: dict[str, str] = {}
 
     # Phase 1: replace all local [N] with null-byte placeholders
-    for local_key, global_key in section_map.items():
+    # Sort by key length descending so [10] is replaced before [1]
+    sorted_items = sorted(section_map.items(), key=lambda kv: len(kv[0]), reverse=True)
+    for local_key, global_key in sorted_items:
         placeholder = f"\x00{local_key}\x00"
         result = result.replace(local_key, placeholder)
         placeholders[placeholder] = global_key
@@ -513,8 +515,8 @@ def _build_output(
         refs = citation_re.findall(renumbered)
         cit_ids = list(dict.fromkeys(f"[{r}]" for r in refs))
 
-        # LLM-provided confidence (or default)
-        conf_score = draft.get("confidence", 0.7)
+        # Use mechanical grounding score as initial confidence
+        conf_score = grounding_score if grounding_score > 0.0 else 0.5
         conf_level = classify_confidence(conf_score)
 
         section_drafts.append(
@@ -547,7 +549,7 @@ def _build_output(
                         all_citations.append(
                             Citation(
                                 id=cid,
-                                url=p.get("source_id", ""),
+                                url=p.get("source_url", ""),
                                 title=heading,
                                 authority="unknown",
                                 accessed="",
@@ -706,37 +708,28 @@ async def _run_reactor(
 
         system_prompt = kernel_frame + "\n\n" + filled_lens
 
-        # Build messages: shared conversation thread
-        messages = list(conversation) + [
+        # Build messages: shared conversation thread, capped to last 3 turns
+        # (6 messages) to bound context growth and cost per turn
+        recent_history = conversation[-6:] if len(conversation) > 6 else list(conversation)
+        messages = recent_history + [
             {"role": "user", "content": "Analyze the evidence and respond."}
         ]
 
         try:
-            response = await reactor_caller.call(
+            raw_output, usage = await reactor_caller.call(
                 system=system_prompt,
                 messages=messages,
                 agent_name=f"reactor_{agent.id}",
                 max_tokens=2000,
             )
-            raw_output = response.text if hasattr(response, "text") else str(response)
-            usage = response.usage if hasattr(response, "usage") else None
         except Exception:
             # If a single turn fails, continue with remaining turns
             continue
 
         tokens_this_turn = 0
         if usage:
-            tokens_this_turn = getattr(usage, "input_tokens", 0) + getattr(
-                usage, "output_tokens", 0
-            )
-            all_usage.append(
-                {
-                    "agent": f"reactor_{agent.id}",
-                    "input_tokens": getattr(usage, "input_tokens", 0),
-                    "output_tokens": getattr(usage, "output_tokens", 0),
-                    "cost_usd": 0.0,
-                }
-            )
+            tokens_this_turn = usage.get("input_tokens", 0) + usage.get("output_tokens", 0)
+            all_usage.append(usage)
 
         # Parse output and update state
         record = kernel.parse_turn_output(agent, raw_output)
@@ -1019,9 +1012,11 @@ async def _synthesize_v10(
     )
     result["token_usage"] = all_usage
 
-    # Include reactor trace if reactor ran
+    # Include reactor trace and state if reactor ran
     if reactor_trace:
         result["reactor_trace"] = reactor_trace
+    if reactor_products:
+        result["reactor_state"] = reactor_products
 
     # Populate claim graph
     all_claims: list[dict] = []
@@ -1209,7 +1204,7 @@ async def synthesize(
             continue
         draft_order.append(heading)
         section_p = section_passages.get(heading, [])
-        draft_tasks.append(_draft_section(section, section_p, caller))
+        draft_tasks.append(_draft_section(section, section_p, sonnet_caller or caller))
 
     draft_results = await asyncio.gather(*draft_tasks)
 
@@ -1297,7 +1292,7 @@ async def synthesize(
     composition, usage = await _compose_report(
         [v[0] for v in verified],
         state["research_question"],
-        caller,
+        haiku_caller or caller,
     )
     all_usage.extend(usage)
 

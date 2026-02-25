@@ -82,6 +82,9 @@ class ResearchState(TypedDict):
     # Critique
     research_gaps: Annotated[list[ResearchGap], _replace_list]
 
+    # Composition (V10) — intro, transitions, conclusion
+    composition: Annotated[dict, _replace_dict]
+
     # Control
     current_iteration: Annotated[int, _replace_int]
     converged: Annotated[bool, _replace_bool]
@@ -129,8 +132,9 @@ class ResearchState(TypedDict):
     deliberation_waves: Annotated[list[dict], operator.add]
     wave_count: Annotated[int, _replace_int]
 
-    # SIA Reactor (V10 Phase 3) — multi-turn deliberation trace
+    # SIA Reactor (V10 Phase 3) — multi-turn deliberation
     reactor_trace: Annotated[dict, _replace_dict]
+    reactor_state: Annotated[dict, _replace_dict]  # ReactorState for singularity checks
 
     # Adversarial Critique (V10 Phase 4) — multi-turn evaluation
     adversarial_findings: Annotated[list, _replace_list]

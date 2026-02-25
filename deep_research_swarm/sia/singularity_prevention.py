@@ -53,7 +53,7 @@ def check_constraint_singularity(
         return True, "zero_total_constraints"
 
     for agent_id, count in agent_constraints.items():
-        if count == total and len(agent_constraints) == 1:
+        if count == total:
             return False, (f"constraint_singularity: all {total} constraints from {agent_id}")
 
     # Also flag if one agent has > 80% of constraints

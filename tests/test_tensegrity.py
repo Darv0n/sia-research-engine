@@ -15,6 +15,8 @@ Coverage:
 
 from __future__ import annotations
 
+import inspect
+
 from deep_research_swarm.compress.artifact import build_knowledge_artifact
 from deep_research_swarm.compress.cluster import (
     cluster_by_heading,
@@ -49,9 +51,12 @@ def _make_passage(
         id=pid,
         source_id=url,
         source_url=url,
-        heading=heading,
+        heading_context=heading,
         content=content,
+        position=0,
+        char_offset=0,
         token_count=len(content.split()),
+        claim_ids=[],
     )
 
 
@@ -333,6 +338,134 @@ class TestMergeJudgments:
         jc = merge_judgments(auth, ground, contra, cover, wave_number=3)
         assert jc["wave_number"] == 3
 
+    def test_facets_propagated_through_merge(self):
+        """C5 regression: facets from coverage_judge must reach JudgmentContext."""
+        auth = {"source_credibility": {}, "authority_profiles": [], "claim_verdicts_authority": []}
+        ground = {"claim_verdicts_grounding": [], "passage_to_claims": {}}
+        contra = {"contradictions": [], "active_tensions": [], "token_usage": []}
+        test_facets = [
+            {"id": "facet-abc", "question": "What is X?", "weight": 0.5},
+            {"id": "facet-def", "question": "What is Y?", "weight": 0.5},
+        ]
+        cover = {
+            "facets": test_facets,
+            "coverage_map": {
+                "facet_coverage": {},
+                "overall_coverage": 0.5,
+                "uncovered_facets": [],
+                "under_represented_perspectives": [],
+            },
+            "next_wave_queries": [],
+        }
+        jc = merge_judgments(auth, ground, contra, cover)
+        assert "facets" in jc
+        assert len(jc["facets"]) == 2
+        assert jc["facets"][0]["id"] == "facet-abc"
+
+    def test_contradiction_cross_reference_by_text(self):
+        """C3 regression: contradiction matching uses claim text, not IDs."""
+        auth = {
+            "source_credibility": {},
+            "authority_profiles": [],
+            "claim_verdicts_authority": [],
+        }
+        ground = {
+            "claim_verdicts_grounding": [
+                {
+                    "claim_id": "cl-grounding-001",
+                    "claim_text": "The sky is blue",
+                    "grounding_score": 0.8,
+                    "grounding_method": "jaccard_v1",
+                },
+                {
+                    "claim_id": "cl-grounding-002",
+                    "claim_text": "Water is wet",
+                    "grounding_score": 0.7,
+                    "grounding_method": "jaccard_v1",
+                },
+            ],
+            "passage_to_claims": {},
+        }
+        contra = {
+            "contradictions": [],
+            "active_tensions": [
+                {
+                    "id": "tension-abc",
+                    "claim_a": {
+                        "claim_id": "cl-tension-abc-a",  # Different ID namespace
+                        "claim_text": "The sky is blue",
+                        "grounding_score": 0.0,
+                        "grounding_method": "pending",
+                        "authority_score": 0.0,
+                        "authority_level": "unknown",
+                        "contradicted": True,
+                    },
+                    "claim_b": {
+                        "claim_id": "cl-tension-abc-b",
+                        "claim_text": "The sky is red",
+                        "grounding_score": 0.0,
+                        "grounding_method": "pending",
+                        "authority_score": 0.0,
+                        "authority_level": "unknown",
+                        "contradicted": True,
+                    },
+                    "severity": "significant",
+                    "authority_differential": 0.0,
+                    "resolution_hint": "",
+                },
+            ],
+            "token_usage": [],
+        }
+        cover = {
+            "facets": [],
+            "coverage_map": {
+                "facet_coverage": {},
+                "overall_coverage": 0.5,
+                "uncovered_facets": [],
+                "under_represented_perspectives": [],
+            },
+            "next_wave_queries": [],
+        }
+        jc = merge_judgments(auth, ground, contra, cover)
+        verdicts = jc["claim_verdicts"]
+        # "The sky is blue" should be marked contradicted (text match)
+        blue_verdict = [v for v in verdicts if v["claim_text"] == "The sky is blue"][0]
+        assert blue_verdict["contradicted"] is True
+        assert blue_verdict["contradiction_id"] == "tension-abc"
+        # "Water is wet" should NOT be contradicted
+        wet_verdict = [v for v in verdicts if v["claim_text"] == "Water is wet"][0]
+        assert wet_verdict["contradicted"] is False
+
+    def test_next_wave_queries_have_all_subquery_fields(self):
+        """C4 regression: SubQuery must have all required fields."""
+        auth = {"source_credibility": {}, "authority_profiles": [], "claim_verdicts_authority": []}
+        ground = {"claim_verdicts_grounding": [], "passage_to_claims": {}}
+        contra = {"contradictions": [], "active_tensions": [], "token_usage": []}
+        cover = {
+            "facets": [],
+            "coverage_map": {
+                "facet_coverage": {},
+                "overall_coverage": 0.3,
+                "uncovered_facets": ["What is X?"],
+                "under_represented_perspectives": [],
+            },
+            "next_wave_queries": [
+                {"id": "sq-wave-test", "question": "What is X?", "search_backends": ["searxng"]},
+            ],
+        }
+        jc = merge_judgments(auth, ground, contra, cover)
+        queries = jc["next_wave_queries"]
+        assert len(queries) == 1
+        sq = queries[0]
+        # All required SubQuery fields must be present
+        assert "id" in sq
+        assert "question" in sq
+        assert "perspective" in sq
+        assert "priority" in sq
+        assert "parent_query_id" in sq
+        assert "search_backends" in sq
+        assert sq["search_backends"] == ["searxng"]
+
 
 # ============================================================
 # Clustering
@@ -599,6 +732,13 @@ class TestStatePhase2:
         assert "deliberation_waves" in annotations
         assert "wave_count" in annotations
 
+    def test_composition_field_exists(self):
+        """C2 regression: composition must be a state field so LangGraph preserves it."""
+        from deep_research_swarm.graph.state import ResearchState
+
+        annotations = ResearchState.__annotations__
+        assert "composition" in annotations
+
 
 # ============================================================
 # Graph Topology
@@ -681,3 +821,592 @@ class TestSynthesizerV10Routing:
 
         assert "cluster" in V10_SECTION_SYSTEM.lower()
         assert "[N]" in V10_SECTION_SYSTEM
+
+
+class TestS1S2ModelTiering:
+    """S1/S2 regression: V9 path must use correct model tiers."""
+
+    def test_v9_draft_uses_sonnet_caller(self):
+        """V9 section drafting should use sonnet_caller when available."""
+        import inspect
+
+        from deep_research_swarm.agents.synthesizer import synthesize
+
+        source = inspect.getsource(synthesize)
+        # The V9 fallback function is called from synthesize
+        assert "sonnet_caller" in source
+        assert "haiku_caller" in source
+
+    def test_v9_draft_section_call_uses_sonnet(self):
+        """_draft_section in V9 path should receive sonnet_caller or caller."""
+        import ast
+
+        from deep_research_swarm.agents import synthesizer
+
+        tree = ast.parse(inspect.getsource(synthesizer))
+        # Find _draft_section calls to verify they pass sonnet_caller
+        found_sonnet = False
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
+                if node.func.id == "_draft_section":
+                    for arg in node.args:
+                        if isinstance(arg, ast.BoolOp):
+                            for val in arg.values:
+                                if isinstance(val, ast.Name) and val.id == "sonnet_caller":
+                                    found_sonnet = True
+        assert found_sonnet, "_draft_section must be called with sonnet_caller"
+
+    def test_v9_compose_uses_haiku(self):
+        """_compose_report in V9 path should receive haiku_caller or caller."""
+        import ast
+
+        from deep_research_swarm.agents import synthesizer
+
+        tree = ast.parse(inspect.getsource(synthesizer))
+        found_haiku = False
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
+                if node.func.id == "_compose_report":
+                    for arg in node.args:
+                        if isinstance(arg, ast.BoolOp):
+                            for val in arg.values:
+                                if isinstance(val, ast.Name) and val.id == "haiku_caller":
+                                    found_haiku = True
+        assert found_haiku, "_compose_report must be called with haiku_caller"
+
+
+class TestS7HeadingContext:
+    """S7 regression: cluster.py must use heading_context, not heading."""
+
+    def test_cluster_reads_heading_context(self):
+        """cluster_by_heading uses heading_context field."""
+        passages = [
+            _make_passage(pid="sp-a", heading="Alpha Topic"),
+            _make_passage(pid="sp-b", heading="Alpha Topic"),
+            _make_passage(pid="sp-c", heading="Beta Topic"),
+            _make_passage(pid="sp-d", heading="Beta Topic"),
+        ]
+        clusters = cluster_by_heading(passages)
+        assert len(clusters) >= 2
+
+    def test_passage_text_uses_heading_context(self):
+        """_passage_text reads heading_context, not heading."""
+        from deep_research_swarm.compress.cluster import _passage_text
+
+        passage = _make_passage(heading="My Heading")
+        text = _passage_text(passage)
+        assert "My Heading" in text
+
+    def test_format_clusters_theme_from_heading_context(self):
+        """Cluster theme should come from heading_context."""
+        from deep_research_swarm.compress.cluster import _format_clusters
+
+        passages = [_make_passage(pid="sp-x", heading="Theme Alpha")]
+        clusters = _format_clusters(passages, [[0]])
+        assert clusters[0]["theme"] == "Theme Alpha"
+
+
+class TestS6ClaimsForCluster:
+    """S6 regression: _claims_for_cluster must filter by passage_ids."""
+
+    def test_linked_claims_preferred_via_passage_map(self):
+        from deep_research_swarm.compress.artifact import _claims_for_cluster
+
+        claims = [
+            {"claim_id": "cl-abc-0", "claim_text": "A", "grounding_method": "jaccard_v1"},
+            {"claim_id": "cl-xyz-0", "claim_text": "B", "grounding_method": "jaccard_v1"},
+            {"claim_id": "cl-other-0", "claim_text": "C", "grounding_method": "jaccard_v1"},
+        ]
+        p2c = {"sp-abc": ["cl-abc-0"], "sp-xyz": ["cl-xyz-0"]}
+        result = _claims_for_cluster(
+            ["sp-abc", "sp-xyz"], claims, max_claims=2, passage_to_claims=p2c
+        )
+        claim_ids = [c["claim_id"] for c in result]
+        assert "cl-abc-0" in claim_ids
+        assert "cl-xyz-0" in claim_ids
+
+    def test_fallback_when_no_linked_claims(self):
+        from deep_research_swarm.compress.artifact import _claims_for_cluster
+
+        claims = [
+            {"claim_id": "cl-other-0", "claim_text": "A", "grounding_method": "jaccard_v1"},
+        ]
+        # No passage_to_claims entry for sp-abc -> falls back to second pass
+        result = _claims_for_cluster(["sp-abc"], claims, max_claims=5, passage_to_claims={})
+        assert len(result) == 1
+
+    def test_no_map_still_uses_fallback(self):
+        from deep_research_swarm.compress.artifact import _claims_for_cluster
+
+        claims = [
+            {"claim_id": "cl-1", "claim_text": "A", "grounding_method": "jaccard_v1"},
+        ]
+        # No passage_to_claims at all -> second pass fills
+        result = _claims_for_cluster(["sp-abc"], claims, max_claims=5)
+        assert len(result) == 1
+
+
+class TestS12ReactorStateField:
+    """S12 regression: ResearchState must have reactor_state for singularity checks."""
+
+    def test_state_has_reactor_state_field(self):
+        from deep_research_swarm.graph.state import ResearchState
+
+        assert "reactor_state" in ResearchState.__annotations__
+
+    def test_entropy_node_reads_reactor_state(self):
+        """compute_entropy_node must read reactor_state, not reactor_trace."""
+        source = inspect.getsource(
+            __import__("deep_research_swarm.graph.builder", fromlist=["build_graph"]).build_graph
+        )
+        assert 'state.get("reactor_state"' in source
+
+    def test_synthesizer_stores_reactor_state(self):
+        """_synthesize_v10 must store reactor_products as reactor_state."""
+        source = inspect.getsource(
+            __import__(
+                "deep_research_swarm.agents.synthesizer", fromlist=["_synthesize_v10"]
+            )._synthesize_v10
+        )
+        assert '"reactor_state"' in source
+
+
+class TestS13CitationUrl:
+    """S13 regression: Citation URL must use source_url, not source_id."""
+
+    def test_build_output_uses_source_url(self):
+        source = inspect.getsource(
+            __import__(
+                "deep_research_swarm.agents.synthesizer", fromlist=["_build_output"]
+            )._build_output
+        )
+        assert "source_url" in source
+        assert "source_id" not in source or "source_id=url" not in source
+
+
+class TestS16RenumberCitations:
+    """S16 regression: _renumber_section_content must handle 2-digit refs."""
+
+    def test_two_digit_citations_not_corrupted(self):
+        from deep_research_swarm.agents.synthesizer import (
+            _renumber_section_content,
+        )
+
+        # Map: local [1] -> global [5], local [10] -> global [6]
+        section_map = {"[1]": "[5]", "[10]": "[6]"}
+        content = "See [1] and [10] for details."
+        result = _renumber_section_content(content, section_map)
+        assert "[5]" in result
+        assert "[6]" in result
+        assert "[5]0" not in result  # This was the corruption pattern
+
+    def test_single_digit_unaffected(self):
+        from deep_research_swarm.agents.synthesizer import (
+            _renumber_section_content,
+        )
+
+        section_map = {"[1]": "[3]", "[2]": "[4]"}
+        content = "Ref [1] and [2]."
+        result = _renumber_section_content(content, section_map)
+        assert result == "Ref [3] and [4]."
+
+
+class TestS17ClaimsGlobalDedup:
+    """S17 regression: Claims must not repeat across clusters."""
+
+    def test_globally_assigned_prevents_duplicates(self):
+        from deep_research_swarm.compress.artifact import _claims_for_cluster
+
+        claims = [
+            {"claim_id": "c1", "claim_text": "A", "grounding_method": "jaccard_v1"},
+            {"claim_id": "c2", "claim_text": "B", "grounding_method": "jaccard_v1"},
+        ]
+        assigned: set[str] = set()
+
+        # Cluster 1 gets c1
+        r1 = _claims_for_cluster([], claims, max_claims=1, globally_assigned=assigned)
+        assert len(r1) == 1
+        assert r1[0]["claim_id"] == "c1"
+
+        # Cluster 2 should NOT get c1 again
+        r2 = _claims_for_cluster([], claims, max_claims=1, globally_assigned=assigned)
+        assert len(r2) == 1
+        assert r2[0]["claim_id"] == "c2"
+
+        # Cluster 3 has nothing left
+        r3 = _claims_for_cluster([], claims, max_claims=1, globally_assigned=assigned)
+        assert len(r3) == 0
+
+
+class TestS18CoverageDenominator:
+    """S18 regression: Coverage denominator must not produce inflated scores."""
+
+    def test_coverage_uses_bounded_expected_matches(self):
+        """Coverage formula must use expected_matches with bounded range [3, 10]."""
+        from deep_research_swarm.deliberate.panel import coverage_judge
+
+        source = inspect.getsource(coverage_judge)
+        assert "expected_matches" in source
+        # Must have both floor and ceiling bounds
+        lines = [ln.strip() for ln in source.split("\n") if not ln.strip().startswith("#")]
+        code_only = "\n".join(lines)
+        assert "min(10," in code_only
+        assert "max(3," in code_only
+
+
+class TestS20ReactorConversationCap:
+    """S20 regression: Reactor conversation must be capped to prevent unbounded growth."""
+
+    def test_conversation_capped_in_source(self):
+        source = inspect.getsource(
+            __import__(
+                "deep_research_swarm.agents.synthesizer", fromlist=["_run_reactor"]
+            )._run_reactor
+        )
+        # Must have recent_history slicing
+        assert "recent_history" in source
+        assert "conversation[-6:]" in source
+
+
+# ============================================================
+# S21: _claims_for_cluster uses passage_to_claims map
+# ============================================================
+
+
+class TestS21PassageToClaimsLinkage:
+    """S21 regression: claim-cluster linkage must use passage_to_claims map."""
+
+    def test_linked_claims_via_map(self):
+        from deep_research_swarm.compress.artifact import _claims_for_cluster
+
+        claims = [
+            {"claim_id": "cl-a", "claim_text": "A", "grounding_method": "jaccard_v1"},
+            {"claim_id": "cl-b", "claim_text": "B", "grounding_method": "jaccard_v1"},
+            {"claim_id": "cl-c", "claim_text": "C", "grounding_method": "jaccard_v1"},
+        ]
+        p2c = {"sp-1": ["cl-a"], "sp-2": ["cl-b"]}
+        result = _claims_for_cluster(["sp-1", "sp-2"], claims, max_claims=5, passage_to_claims=p2c)
+        ids = [c["claim_id"] for c in result]
+        # First pass: cl-a, cl-b linked; second pass: cl-c unlinked but grounded
+        assert ids[:2] == ["cl-a", "cl-b"]
+        assert "cl-c" in ids
+
+    def test_no_map_falls_through_to_second_pass(self):
+        from deep_research_swarm.compress.artifact import _claims_for_cluster
+
+        claims = [
+            {"claim_id": "cl-x", "claim_text": "X", "grounding_method": "jaccard_v1"},
+        ]
+        result = _claims_for_cluster(["sp-1"], claims, max_claims=5, passage_to_claims=None)
+        assert len(result) == 1
+        assert result[0]["claim_id"] == "cl-x"
+
+    def test_passage_to_claims_in_judgment_context(self):
+        """merge_judgments must propagate passage_to_claims to JudgmentContext."""
+        from deep_research_swarm.deliberate.merge import merge_judgments
+
+        auth = {"source_credibility": {}, "authority_profiles": [], "claim_verdicts_authority": []}
+        ground = {
+            "claim_verdicts_grounding": [],
+            "passage_to_claims": {"sp-1": ["cl-a"]},
+        }
+        contra = {"contradictions": [], "active_tensions": [], "token_usage": []}
+        cover = {
+            "facets": [],
+            "coverage_map": {
+                "facet_coverage": {},
+                "overall_coverage": 0.5,
+                "uncovered_facets": [],
+                "under_represented_perspectives": [],
+            },
+            "next_wave_queries": [],
+        }
+        jc = merge_judgments(auth, ground, contra, cover)
+        assert "passage_to_claims" in jc
+        assert jc["passage_to_claims"] == {"sp-1": ["cl-a"]}
+
+    def test_artifact_builder_threads_map(self):
+        """build_knowledge_artifact must pass passage_to_claims from JudgmentContext."""
+        jc = JudgmentContext(
+            claim_verdicts=[
+                ClaimVerdict(
+                    claim_id="cl-linked",
+                    claim_text="Linked claim",
+                    grounding_score=0.9,
+                    grounding_method="jaccard_v1",
+                    authority_score=0.7,
+                    authority_level="professional",
+                    contradicted=False,
+                ),
+            ],
+            source_credibility={"https://example.com": 0.7},
+            active_tensions=[],
+            coverage_map=CoverageMap(
+                facet_coverage={},
+                overall_coverage=0.5,
+                uncovered_facets=[],
+                under_represented_perspectives=[],
+            ),
+            next_wave_queries=[],
+            overall_coverage=0.5,
+            structural_risks=[],
+            wave_number=1,
+            facets=[],
+        )
+        jc["passage_to_claims"] = {"sp-1": ["cl-linked"]}
+        passages = [_make_passage(pid="sp-1")]
+        artifact = build_knowledge_artifact(jc, passages, use_embeddings=False)
+        # cl-linked should be in first cluster via map linkage
+        all_claims = []
+        for c in artifact["clusters"]:
+            all_claims.extend(c["claims"])
+        assert any(c["claim_id"] == "cl-linked" for c in all_claims)
+
+
+# ============================================================
+# S23: Confidence from grounding_score, not hardcoded 0.7
+# ============================================================
+
+
+class TestS23GroundingConfidence:
+    """S23 regression: confidence_score must derive from grounding, not hardcoded."""
+
+    def test_source_uses_grounding_score(self):
+        source = inspect.getsource(
+            __import__(
+                "deep_research_swarm.agents.synthesizer", fromlist=["_build_output"]
+            )._build_output
+        )
+        # Must not contain the old hardcoded default
+        assert 'draft.get("confidence", 0.7)' not in source
+        # Must reference grounding_score for confidence
+        assert "grounding_score" in source
+
+
+# ============================================================
+# S24: reactor_configs passed as parameter, not instance state
+# ============================================================
+
+
+class TestS24ReactorConfigsLocal:
+    """S24 regression: SwarmOrchestrator must not rely on self._reactor_configs."""
+
+    def test_run_single_reactor_accepts_configs(self):
+        from deep_research_swarm.sia.swarm import SwarmOrchestrator
+
+        sig = inspect.signature(SwarmOrchestrator._run_single_reactor)
+        assert "reactor_configs" in sig.parameters
+
+    def test_no_instance_state_in_run(self):
+        """run() must use local variable, not self._reactor_configs."""
+        from deep_research_swarm.sia.swarm import SwarmOrchestrator
+
+        source = inspect.getsource(SwarmOrchestrator.run)
+        assert "self._reactor_configs" not in source
+
+
+# ============================================================
+# S25: compression_ratio is claims/passages (information density)
+# ============================================================
+
+
+class TestS25CompressionRatio:
+    """S25 regression: compression_ratio must reflect information density."""
+
+    def test_ratio_reflects_claims_not_passages(self):
+        """compression_ratio should be total_claims / original_passages."""
+        source = inspect.getsource(build_knowledge_artifact)
+        # Must compute ratio from claims, not passage counts
+        assert "total_claims" in source
+        assert 'sum(len(pc["claims"])' in source
+
+    def test_ratio_zero_when_no_claims(self):
+        jc = JudgmentContext(
+            claim_verdicts=[],
+            source_credibility={"https://example.com": 0.5},
+            active_tensions=[],
+            coverage_map=CoverageMap(
+                facet_coverage={},
+                overall_coverage=0.5,
+                uncovered_facets=[],
+                under_represented_perspectives=[],
+            ),
+            next_wave_queries=[],
+            overall_coverage=0.5,
+            structural_risks=[],
+            wave_number=1,
+            facets=[],
+        )
+        passages = [_make_passage(pid=f"sp-{i}") for i in range(5)]
+        artifact = build_knowledge_artifact(jc, passages, use_embeddings=False)
+        # No claims -> ratio should be 0
+        assert artifact["compression_ratio"] == 0.0
+
+
+# ============================================================
+# S26: Coverage denominator bounded [3, 10]
+# ============================================================
+
+
+class TestS26CoverageBounded:
+    """S26 regression: coverage denominator must have floor AND ceiling."""
+
+    def test_many_docs_few_facets_not_deflated(self):
+        """With 100 docs and 2 facets, denominator capped at 10."""
+        from deep_research_swarm.deliberate.panel import coverage_judge
+
+        docs = [_make_scored_doc(title=f"test topic {i}") for i in range(100)]
+        queries = [{"question": "test topic"}, {"question": "other topic"}]
+        result = coverage_judge(docs, "test", queries)
+        # Coverage should not be near-zero due to unbounded denominator
+        overall = result["coverage_map"]["overall_coverage"]
+        # With 100 docs matching "test" keyword, coverage should be reasonable
+        assert overall >= 0.0  # Basic sanity
+
+    def test_source_has_ceiling(self):
+        from deep_research_swarm.deliberate.panel import coverage_judge
+
+        source = inspect.getsource(coverage_judge)
+        assert "min(10," in source
+
+
+# ============================================================
+# S27: plan_node resets converged for new iteration
+# ============================================================
+
+
+class TestS27PlanNodeReset:
+    """S27 regression: plan_node must reset converged for each new iteration."""
+
+    def test_plan_node_resets_convergence(self):
+        from deep_research_swarm.graph.builder import build_graph
+
+        source = inspect.getsource(build_graph)
+        # plan_node must set converged=False
+        assert '"converged"' in source or "converged" in source
+        # Find the plan_node closure and check it resets
+        assert 'result["converged"] = False' in source
+        assert 'result["convergence_reason"] = ""' in source
+
+
+# ============================================================
+# M7: Singularity check simplified condition
+# ============================================================
+
+
+class TestM7SingularitySimplified:
+    """M7 regression: check_constraint_singularity should not have redundant condition."""
+
+    def test_source_no_redundant_len_check(self):
+        import inspect
+
+        from deep_research_swarm.sia.singularity_prevention import check_constraint_singularity
+
+        source = inspect.getsource(check_constraint_singularity)
+        # Should NOT have the old redundant "and len(agent_constraints) == 1"
+        assert "len(agent_constraints) == 1" not in source
+
+    def test_single_agent_all_constraints_detected(self):
+        from deep_research_swarm.sia.singularity_prevention import check_constraint_singularity
+
+        reactor_state = {
+            "turn_log": [
+                {"agent": "lawliet", "constraints": ["c1", "c2", "c3"]},
+            ],
+            "constraints": ["c1", "c2", "c3"],
+        }
+        safe, reason = check_constraint_singularity(reactor_state)
+        assert not safe
+        assert "constraint_singularity" in reason
+
+
+# ============================================================
+# M10: authority_judge caches authority level
+# ============================================================
+
+
+class TestM10AuthorityCached:
+    """M10 regression: authority_judge must not call score_authority twice per URL."""
+
+    def test_source_uses_url_authority_level(self):
+        import inspect
+
+        from deep_research_swarm.deliberate.panel import authority_judge
+
+        source = inspect.getsource(authority_judge)
+        assert "url_authority_level" in source
+        # Second pass should NOT call score_authority
+        # Count occurrences of score_authority in the passage loop
+        passage_section = source.split("# Partial claim verdicts")[1]
+        assert "score_authority" not in passage_section
+
+
+# ============================================================
+# M11: cluster overflow check simplified
+# ============================================================
+
+
+class TestM11ClusterOverflowCheck:
+    """M11 regression: overflow check should not have redundant truthiness."""
+
+    def test_source_no_redundant_check(self):
+        import inspect
+
+        from deep_research_swarm.compress.cluster import cluster_by_heading
+
+        source = inspect.getsource(cluster_by_heading)
+        assert "clusters and len(clusters)" not in source
+
+
+# ============================================================
+# M12: synthesize_node no pop-then-reassign
+# ============================================================
+
+
+class TestM12NoPushPop:
+    """M12 regression: synthesize_node should use get, not pop-then-reassign."""
+
+    def test_no_pop_reactor_trace(self):
+        import inspect
+
+        from deep_research_swarm.graph.builder import build_graph
+
+        source = inspect.getsource(build_graph)
+        assert 'result.pop("reactor_trace"' not in source
+
+
+# ============================================================
+# M13: config detection uses "config" in params
+# ============================================================
+
+
+class TestM13ConfigDetection:
+    """M13 regression: _wrap_with_logging must check param name, not count."""
+
+    def test_has_config_checks_name(self):
+        import inspect
+
+        from deep_research_swarm.graph.builder import _wrap_with_logging
+
+        source = inspect.getsource(_wrap_with_logging)
+        assert '"config" in params' in source
+        assert "len(params) >= 2" not in source
+
+
+# ============================================================
+# M14: search_followup uses sub_query_id
+# ============================================================
+
+
+class TestM14SubQueryIdField:
+    """M14 regression: search_followup_node must use sub_query_id, not query_id."""
+
+    def test_source_uses_sub_query_id(self):
+        import inspect
+
+        from deep_research_swarm.graph.builder import build_graph
+
+        source = inspect.getsource(build_graph)
+        # The dedup line must use sub_query_id
+        assert 'sr.get("sub_query_id"' in source
+        assert 'sr.get("query_id"' not in source

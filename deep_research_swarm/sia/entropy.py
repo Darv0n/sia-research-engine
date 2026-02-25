@@ -61,6 +61,10 @@ def compute_entropy(
     else:
         stagnation_count = 0
 
+    # Snapshot current counts for next iteration's novelty delta
+    current_query_count = len(state.get("sub_queries", []))
+    current_headings = [s.get("heading", "") for s in state.get("section_drafts", [])]
+
     return EntropyState(
         e=round(e, 4),
         e_amb=round(e_amb, 4),
@@ -70,6 +74,8 @@ def compute_entropy(
         band=classify_band(e),
         turn=prev_turn + 1,
         stagnation_count=stagnation_count,
+        _prev_query_count=current_query_count,
+        _prev_headings=current_headings,
     )
 
 
@@ -136,7 +142,7 @@ def detect_false_convergence(
 
 
 def detect_dominance(
-    entropy_history: list[EntropyState],
+    _entropy_history: list[EntropyState],
     section_drafts: list[dict],
 ) -> tuple[bool, str]:
     """Detect single-perspective dominance.
@@ -239,15 +245,28 @@ def _compute_novelty(state: dict[str, Any], prev_entropy: EntropyState | None) -
     sub_queries = state.get("sub_queries", [])
     follow_ups = state.get("follow_up_queries", [])
 
-    # New query ratio: follow-ups / total queries
-    total_queries = max(len(sub_queries), 1)
-    new_ratio = len(follow_ups) / total_queries
-
     # If first iteration, high novelty
     if prev_entropy is None or prev_entropy["turn"] == 0:
         return 0.7
 
-    return min(1.0, new_ratio * 2.0)  # scale: 50% new queries = max novelty
+    # Delta-based: compare current query count to previous turn's count
+    prev_query_count = prev_entropy.get("_prev_query_count", len(sub_queries))
+    new_queries = len(sub_queries) - prev_query_count + len(follow_ups)
+    total_queries = max(len(sub_queries), 1)
+
+    # New query ratio: queries added this iteration / total
+    new_ratio = max(0, new_queries) / total_queries
+
+    # Heading delta: check if section headings changed since last iteration
+    sections = state.get("section_drafts", [])
+    prev_headings = set(prev_entropy.get("_prev_headings", []))
+    current_headings = {s.get("heading", "") for s in sections} if sections else set()
+    heading_delta = 0.0
+    if prev_headings and current_headings:
+        symmetric_diff = prev_headings.symmetric_difference(current_headings)
+        heading_delta = len(symmetric_diff) / max(len(prev_headings | current_headings), 1)
+
+    return min(1.0, new_ratio * 1.5 + heading_delta * 0.5)
 
 
 def _compute_trust(state: dict[str, Any]) -> float:

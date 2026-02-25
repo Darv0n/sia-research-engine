@@ -526,3 +526,108 @@ class TestEntropyGraphIntegration:
         entropy = compute_entropy(state)
         assert entropy["turn"] == 1
         assert entropy["stagnation_count"] == 0
+
+
+class TestS10NoveltyDelta:
+    """S10 regression: _compute_novelty must not be permanently suppressed."""
+
+    def test_novelty_first_iteration_high(self):
+        """First iteration should have high novelty."""
+        from deep_research_swarm.sia.entropy import _compute_novelty
+
+        state = {"sub_queries": [{"id": "q1"}], "follow_up_queries": []}
+        result = _compute_novelty(state, None)
+        assert result == 0.7
+
+    def test_novelty_with_new_queries(self):
+        """Novelty should be non-zero when new queries are added."""
+        from deep_research_swarm.sia.entropy import _compute_novelty
+
+        state = {
+            "sub_queries": [{"id": f"q{i}"} for i in range(10)],
+            "follow_up_queries": [{"id": "fu1"}, {"id": "fu2"}],
+            "section_drafts": [{"heading": "A"}, {"heading": "B"}],
+        }
+        prev = {
+            "turn": 1,
+            "e": 0.3,
+            "_prev_query_count": 5,
+            "_prev_headings": ["A", "B"],
+        }
+        result = _compute_novelty(state, prev)
+        # 5 new sub_queries + 2 follow_ups = 7 new, / 10 total * 1.5 = 1.05 -> capped at 1.0
+        assert result > 0.0
+
+    def test_novelty_with_heading_changes(self):
+        """Novelty should reflect section heading changes."""
+        from deep_research_swarm.sia.entropy import _compute_novelty
+
+        state = {
+            "sub_queries": [{"id": "q1"}],
+            "follow_up_queries": [],
+            "section_drafts": [{"heading": "New Topic"}, {"heading": "B"}],
+        }
+        prev = {
+            "turn": 1,
+            "e": 0.3,
+            "_prev_query_count": 1,
+            "_prev_headings": ["A", "B"],
+        }
+        result = _compute_novelty(state, prev)
+        # No new queries but heading changed: symmetric_diff = {"A", "New Topic"} / 3 = 0.67 * 0.5
+        assert result > 0.0
+
+    def test_novelty_zero_when_nothing_changed(self):
+        """Novelty should be zero/near-zero when nothing changed."""
+        from deep_research_swarm.sia.entropy import _compute_novelty
+
+        state = {
+            "sub_queries": [{"id": "q1"}],
+            "follow_up_queries": [],
+            "section_drafts": [{"heading": "A"}],
+        }
+        prev = {
+            "turn": 1,
+            "e": 0.3,
+            "_prev_query_count": 1,
+            "_prev_headings": ["A"],
+        }
+        result = _compute_novelty(state, prev)
+        assert result == 0.0
+
+    def test_entropy_stores_prev_counts(self):
+        """compute_entropy must store _prev_query_count and _prev_headings."""
+        state = _make_state()
+        state["sub_queries"] = [{"id": "q1"}, {"id": "q2"}]
+        state["section_drafts"] = [
+            {
+                "heading": "A",
+                "confidence_score": 0.8,
+                "confidence_level": "HIGH",
+                "grader_scores": {},
+            },
+        ]
+        entropy = compute_entropy(state)
+        assert "_prev_query_count" in entropy
+        assert entropy["_prev_query_count"] == 2
+        assert "_prev_headings" in entropy
+        assert entropy["_prev_headings"] == ["A"]
+
+
+# ============================================================
+# M5: detect_dominance unused parameter renamed
+# ============================================================
+
+
+class TestM5DominanceParamRenamed:
+    """M5 regression: detect_dominance first param should be prefixed with _."""
+
+    def test_parameter_name_prefixed(self):
+        import inspect
+
+        from deep_research_swarm.sia.entropy import detect_dominance
+
+        sig = inspect.signature(detect_dominance)
+        params = list(sig.parameters.keys())
+        # First param should start with _ (unused, signaled)
+        assert params[0].startswith("_")

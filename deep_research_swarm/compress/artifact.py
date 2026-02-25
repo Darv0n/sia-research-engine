@@ -67,8 +67,10 @@ def build_knowledge_artifact(
     # Step 2: Rank within clusters + build PassageCluster objects
     source_credibility = judgment_context.get("source_credibility", {})
     claim_verdicts = judgment_context.get("claim_verdicts", [])
+    p2c_map = judgment_context.get("passage_to_claims", {})
 
     passage_clusters: list[PassageCluster] = []
+    assigned_claim_ids: set[str] = set()  # Track globally to prevent duplicates
     for raw in raw_clusters:
         passage_ids = raw.get("passage_ids", [])
         ranked_ids = rank_passages_in_cluster(
@@ -77,11 +79,13 @@ def build_knowledge_artifact(
             source_passages,
         )
 
-        # Attach claims to this cluster
+        # Attach claims to this cluster (shared set prevents cross-cluster dupes)
         cluster_claims = _claims_for_cluster(
             ranked_ids,
             claim_verdicts,
             claims_per_cluster,
+            globally_assigned=assigned_claim_ids,
+            passage_to_claims=p2c_map,
         )
 
         # Compute authority profile for this cluster
@@ -132,15 +136,13 @@ def build_knowledge_artifact(
     # Step 7: Insights (cross-cluster patterns)
     insights = _extract_insights(passage_clusters, active_tensions, coverage)
 
-    # Compression ratio
+    # Compression ratio: claims extracted per passage (information density)
     original_passage_count = len(source_passages)
-    compressed = sum(len(pc["passage_ids"]) for pc in passage_clusters)
-    ratio = compressed / max(original_passage_count, 1)
+    total_claims = sum(len(pc["claims"]) for pc in passage_clusters)
+    ratio = total_claims / max(original_passage_count, 1)
 
-    # Facets from judgment context (via coverage judge)
+    # Facets from judgment context (via coverage judge -> merge)
     facets = judgment_context.get("facets", [])
-    # facets may not be in JudgmentContext TypedDict — pull from coverage output
-    # Fall back to empty list if not present
 
     return KnowledgeArtifact(
         question="",  # Populated by caller with research_question
@@ -186,18 +188,51 @@ def _claims_for_cluster(
     passage_ids: list[str],
     claim_verdicts: list[ClaimVerdict],
     max_claims: int,
+    globally_assigned: set[str] | None = None,
+    passage_to_claims: dict[str, list[str]] | None = None,
 ) -> list[ClaimVerdict]:
-    """Find claims linked to passages in this cluster, capped."""
-    # Claims reference passages indirectly — match by claim_id prefix
-    # or collect all verdicts (in the merged panel, passage linkage
-    # comes from grounding_judge's passage_to_claims)
+    """Find claims linked to passages in this cluster, capped.
+
+    Args:
+        globally_assigned: Track claim_ids already assigned to other clusters.
+            Updated in-place to prevent the same claim appearing in multiple clusters.
+        passage_to_claims: Reverse map from passage_id -> [claim_id] produced by
+            the grounding judge. Used for first-pass linkage instead of substring
+            matching.
+    """
+    if globally_assigned is None:
+        globally_assigned = set()
     cluster_claims: list[ClaimVerdict] = []
+
+    # Build set of claim IDs linked to this cluster's passages
+    linked_claim_ids: set[str] = set()
+    if passage_to_claims:
+        for pid in passage_ids:
+            linked_claim_ids.update(passage_to_claims.get(pid, []))
+
+    # First pass: claims linked via passage_to_claims map
     for v in claim_verdicts:
-        # Include claims that are grounded (have a real method)
-        if v.get("grounding_method", "unverified") != "unverified":
-            cluster_claims.append(v)
         if len(cluster_claims) >= max_claims:
             break
+        cid = v.get("claim_id", "")
+        if cid in globally_assigned:
+            continue
+        if cid in linked_claim_ids and v.get("grounding_method", "unverified") != "unverified":
+            cluster_claims.append(v)
+            globally_assigned.add(cid)
+
+    # Second pass: fill remaining slots with unassigned grounded claims
+    if len(cluster_claims) < max_claims:
+        for v in claim_verdicts:
+            if len(cluster_claims) >= max_claims:
+                break
+            cid = v.get("claim_id", "")
+            if cid in globally_assigned:
+                continue
+            if v.get("grounding_method", "unverified") != "unverified":
+                cluster_claims.append(v)
+                globally_assigned.add(cid)
+
     return cluster_claims
 
 

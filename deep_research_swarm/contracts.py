@@ -361,6 +361,8 @@ class EntropyState(TypedDict):
     band: str  # EntropyBand value
     turn: int
     stagnation_count: int  # consecutive turns with |delta_e| < 0.03
+    _prev_query_count: NotRequired[int]  # for novelty delta computation
+    _prev_headings: NotRequired[list[str]]  # for novelty heading delta
 
 
 class TurnRecord(TypedDict):
@@ -508,6 +510,8 @@ class JudgmentContext(TypedDict):
     overall_coverage: float
     structural_risks: list[str]
     wave_number: int
+    facets: list[Facet]
+    passage_to_claims: NotRequired[dict[str, list[str]]]  # pid -> [claim_id]
 
 
 class KnowledgeArtifact(TypedDict):
@@ -522,7 +526,7 @@ class KnowledgeArtifact(TypedDict):
     insights: list[dict]  # flexible insight structures
     authority_profiles: list[AuthorityProfile]
     structural_risks: list[str]
-    compression_ratio: float  # passages_in / claims_out
+    compression_ratio: float  # claims_out / passages_in (information density)
     wave_count: int
 
 
@@ -537,7 +541,7 @@ class SwarmMetadata(TypedDict):
     winner_id: str
     selection_reason: str
     selection_scores: dict[str, float]  # reactor_id -> composite score
-    cross_validation_scores: dict[str, float]  # section_id -> cross-val score
+    cross_validation_scores: dict[str, float]  # reactor_id -> cross-val score
     total_tokens_all: int
     total_cost_all: float
     failed_reactors: list[str]

@@ -305,6 +305,7 @@ class SwarmOrchestrator:
         *,
         enable_cache: bool = True,
         mode: str = "auto",
+        reactor_configs: list[tuple[str, str, dict[str, Any]]] | None = None,
     ) -> dict[str, Any] | None:
         """Run a single reactor (full pipeline). Returns result or None on failure."""
         from deep_research_swarm.graph.builder import build_graph
@@ -318,8 +319,13 @@ class SwarmOrchestrator:
 
             result = await graph.ainvoke(initial_state, config={})
 
-            # Post-run: generate coupling messages for other reactors
-            other_ids = [rid for rid, _, _ in self._reactor_configs if rid != reactor_id]
+            # Post-run: generate coupling messages for other reactors.
+            # NOTE: In parallel execution, messages are only useful for
+            # post-hoc analysis or future staggered execution. receive()
+            # is not called during parallel runs — this is scaffolding
+            # for V11 staggered swarm mode.
+            configs = reactor_configs or []
+            other_ids = [rid for rid, _, _ in configs if rid != reactor_id]
 
             # Artifact injection
             artifact = result.get("knowledge_artifact", {})
@@ -359,7 +365,7 @@ class SwarmOrchestrator:
         Returns the winning reactor's result dict, augmented with
         SwarmMetadata under the "swarm_metadata" key.
         """
-        self._reactor_configs = self._build_reactor_configs(base_state)
+        reactor_configs = self._build_reactor_configs(base_state)
 
         # Launch all reactors concurrently
         tasks = {
@@ -370,9 +376,10 @@ class SwarmOrchestrator:
                     state,
                     enable_cache=enable_cache,
                     mode=mode,
+                    reactor_configs=reactor_configs,
                 )
             )
-            for reactor_id, strategy, state in self._reactor_configs
+            for reactor_id, strategy, state in reactor_configs
         }
 
         # Gather results (allow failures)
@@ -382,8 +389,8 @@ class SwarmOrchestrator:
         completed: dict[str, dict[str, Any]] = {}
         failed: list[str] = []
 
-        for (reactor_id, strategy, _state), result in zip(self._reactor_configs, raw_results):
-            if isinstance(result, Exception) or result is None:
+        for (reactor_id, strategy, _state), result in zip(reactor_configs, raw_results):
+            if isinstance(result, BaseException) or result is None:
                 failed.append(reactor_id)
             else:
                 completed[reactor_id] = result
@@ -395,9 +402,7 @@ class SwarmOrchestrator:
                 "convergence_reason": "swarm_all_reactors_failed",
                 "swarm_metadata": SwarmMetadata(
                     n_reactors=self.n_reactors,
-                    reactor_configs=[
-                        {"id": rid, "strategy": s} for rid, s, _ in self._reactor_configs
-                    ],
+                    reactor_configs=[{"id": rid, "strategy": s} for rid, s, _ in reactor_configs],
                     reactor_entropies=[],
                     reactor_tokens=[],
                     reactor_costs=[],
@@ -422,7 +427,7 @@ class SwarmOrchestrator:
 
         metadata = SwarmMetadata(
             n_reactors=self.n_reactors,
-            reactor_configs=[{"id": rid, "strategy": s} for rid, s, _ in self._reactor_configs],
+            reactor_configs=[{"id": rid, "strategy": s} for rid, s, _ in reactor_configs],
             reactor_entropies=reactor_entropies,
             reactor_tokens=reactor_tokens,
             reactor_costs=reactor_costs,

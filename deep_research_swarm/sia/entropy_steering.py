@@ -58,7 +58,4 @@ def _apply_turbulence(snap: dict[str, Any]) -> None:
 def _apply_convergence(snap: dict[str, Any]) -> None:
     """Convergence band: build — deeper drafts, more sections."""
     if "max_sections" in snap:
-        snap["max_sections"] = min(
-            snap.get("max_sections", 8) + 1,
-            15,  # ceiling from registry
-        )
+        snap["max_sections"] = min(snap["max_sections"] + 1, 15)

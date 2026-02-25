@@ -98,7 +98,6 @@ class SIAKernel:
         self._constraints: list[str] = []
         self._rejected_branches: list[str] = []
         self._active_frames: list[str] = []
-        self._key_claims: list[str] = []
         self._unresolved: list[str] = []
         self._coalition_map: dict[str, list[str]] = {}
         self._challenges: list[str] = []
@@ -148,18 +147,18 @@ class SIAKernel:
         return AGENT_BY_ID["lawliet"]
 
     def _select_ignition_pattern(self) -> tuple[str, str]:
-        """Select ignition pattern based on entropy band."""
+        """Select ignition pattern based on entropy band.
+
+        Uses VALID_IGNITION_PATTERNS as the source of truth.
+        """
         if self.entropy_band == "runaway":
-            # High entropy: start with constraint extraction
-            return ("lawliet", "light")
+            return VALID_IGNITION_PATTERNS[0]  # lawliet -> light
         if self.entropy_band == "turbulence":
-            # Productive tension: strategic framing -> legitimacy test
-            return ("light", "makishima")
+            return VALID_IGNITION_PATTERNS[3]  # light -> makishima
         if self.entropy_band == "crystalline":
-            # Very low entropy: constraint extraction -> frame rupture to open up
-            return ("lawliet", "rick")
+            return VALID_IGNITION_PATTERNS[2]  # lawliet -> rick
         # Default (convergence): standard pattern
-        return ("lawliet", "light")
+        return VALID_IGNITION_PATTERNS[0]  # lawliet -> light
 
     def _build_candidate_pool(self) -> list[SIAAgent]:
         """Build the pool of eligible agents for this turn."""
@@ -240,9 +239,10 @@ class SIAKernel:
             score -= 2.0
 
         # Covenant-aware scoring: check pairwise dynamics with last speaker
+        # Only boost for explicit pairwise covenants, not wildcards (*, agent)
         if self._last_agent_id:
             cov = get_covenant(self._last_agent_id, agent.id)
-            if cov is not None:
+            if cov is not None and cov.agent_b != "*" and cov.agent_a != "*":
                 # Favor productive pairings
                 score += 0.5
 
@@ -390,26 +390,40 @@ class SIAKernel:
         except (json.JSONDecodeError, ValueError):
             pass
 
-        # Try to find JSON block in text
-        json_match = re.search(r"\{[^{}]*\}", text, re.DOTALL)
-        if json_match:
-            try:
-                return json.loads(json_match.group())
-            except (json.JSONDecodeError, ValueError):
-                pass
+        # Try to find JSON block in text — scan for balanced braces
+        depth = 0
+        start = -1
+        for i, ch in enumerate(text):
+            if ch == "{":
+                if depth == 0:
+                    start = i
+                depth += 1
+            elif ch == "}":
+                depth -= 1
+                if depth == 0 and start >= 0:
+                    candidate = text[start : i + 1]
+                    try:
+                        return json.loads(candidate)
+                    except (json.JSONDecodeError, ValueError):
+                        start = -1  # reset, try next block
 
         return None
 
     def _extract_section(self, text: str, *headers: str) -> list[str]:
-        """Extract bullet points under section headers."""
+        """Extract items under section headers (bullets, numbered, or plain lines)."""
         items: list[str] = []
         for header in headers:
-            pattern = rf"(?:^|\n)\d*\.?\s*\**{header}\**[:\s]*\n?((?:[-*•]\s*.*\n?)*)"
+            # Match header, then capture everything until next header or end
+            pattern = (
+                rf"(?:^|\n)\d*\.?\s*\**{header}\**[:\s]*\n?"
+                r"((?:(?:[-*•]|\d+[.)]\s)\s*.*\n?|(?!\d*\.?\s*\**[A-Z]).+\n?)*)"
+            )
             match = re.search(pattern, text, re.IGNORECASE | re.MULTILINE)
             if match:
                 block = match.group(1)
                 for line in block.split("\n"):
-                    cleaned = re.sub(r"^[-*•]\s*", "", line.strip())
+                    # Strip bullet markers, numbered prefixes, leading whitespace
+                    cleaned = re.sub(r"^(?:[-*•]|\d+[.)]\s)\s*", "", line.strip())
                     if cleaned:
                         items.append(cleaned)
         return items
@@ -446,10 +460,17 @@ class SIAKernel:
         else:
             self._stagnation_count = 0
 
-        # Accumulate challenges
+        # Accumulate challenges and track unresolved
         for ch in record["challenges"]:
             if ch and ch not in self._challenges:
                 self._challenges.append(ch)
+            # Challenge not yet addressed by a constraint -> unresolved
+            if ch and ch not in self._constraints and ch not in self._unresolved:
+                self._unresolved.append(ch)
+
+        # Re-check: resolved challenges (matched by a new constraint) leave unresolved
+        if new_constraints > 0:
+            self._unresolved = [u for u in self._unresolved if u not in self._constraints]
 
         # Accumulate reframes -> active frames
         for rf in record["reframes"]:

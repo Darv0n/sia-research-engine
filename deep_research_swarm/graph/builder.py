@@ -86,7 +86,7 @@ def _wrap_with_logging(
 ) -> callable:
     """Wrap a node function to emit a RunEvent after execution."""
     params = inspect.signature(fn).parameters
-    has_config = len(params) >= 2
+    has_config = "config" in params
 
     is_async = asyncio.iscoroutinefunction(fn)
 
@@ -240,6 +240,9 @@ def build_graph(
 
         # V9: Reset follow-up round for new iteration
         result["follow_up_round"] = 0
+        # Reset convergence flags for new iteration (prevents stale state on resume)
+        result["converged"] = False
+        result["convergence_reason"] = ""
 
         # V9: Stream plan in all modes for transparency (G6)
         writer = _get_stream_writer(config)
@@ -433,12 +436,18 @@ def build_graph(
     ) -> dict:
         """V9: Execute follow-up queries identified by gap analysis."""
         writer = _get_stream_writer(config)
-        follow_up_queries = state.get("follow_up_queries", [])
-        if not follow_up_queries:
+        all_follow_ups = state.get("follow_up_queries", [])
+        if not all_follow_ups:
             return {"search_results": []}
 
-        # Only take queries from the latest gap_analysis round
-        # (follow_up_queries accumulates, but we only want the unfetched ones)
+        # Deduplicate: only search queries not already in search_results
+        # (follow_up_queries accumulates across iterations via operator.add)
+        existing_query_ids = {sr.get("sub_query_id", "") for sr in state.get("search_results", [])}
+        follow_up_queries = [
+            sq for sq in all_follow_ups if sq.get("id", "") not in existing_query_ids
+        ]
+        if not follow_up_queries:
+            return {"search_results": []}
         import deep_research_swarm.backends.searxng  # noqa: F401
 
         if settings.exa_api_key:
@@ -733,9 +742,8 @@ def build_graph(
         )
 
         # Stream reactor events if reactor ran
-        reactor_trace = result.pop("reactor_trace", None)
+        reactor_trace = result.get("reactor_trace")
         if reactor_trace:
-            result["reactor_trace"] = reactor_trace
             writer = _get_stream_writer(config)
             if writer:
                 try:
@@ -780,13 +788,12 @@ def build_graph(
         entropy_history = state.get("entropy_history", [])
         dom, dom_reason = detect_dominance(entropy_history, section_drafts)
 
-        # Singularity check (V10 Phase 4) — uses reactor_trace if available
-        reactor_trace = state.get("reactor_trace", {})
+        # Singularity check (V10 Phase 4) — uses reactor_state if available
+        # reactor_state has turn_log, constraints, active_frames, coalition_map
+        # (NOT reactor_trace, which is metadata only)
+        reactor_state_for_check = state.get("reactor_state", {})
         sing_safe, sing_reason, sing_details = True, "no_reactor", {}
-        if reactor_trace:
-            # Build reactor state from turn log in reactor_trace
-            # The full reactor state is reconstructed from the trace
-            reactor_state_for_check = state.get("reactor_trace", {})
+        if reactor_state_for_check:
             sing_safe, sing_reason, sing_details = singularity_check(reactor_state_for_check)
 
         # If entropy blocks convergence, override critic's decision
@@ -833,7 +840,7 @@ def build_graph(
                 pass
 
             # Stream singularity check result
-            if reactor_trace:
+            if reactor_state_for_check:
                 try:
                     writer(
                         {
@@ -991,11 +998,20 @@ def build_graph(
     graph.add_edge("score", "gap_analysis")
 
     def should_follow_up(state: ResearchState) -> str:
-        """Route after gap_analysis: follow-up search or continue to synthesis."""
-        follow_ups = state.get("follow_up_queries", [])
+        """Route after gap_analysis: follow-up search or continue to synthesis.
+
+        Uses follow_up_round as the sole gate signal. gap_analyzer sets
+        follow_up_round=1 when it produces new queries and returns []
+        when follow_up_round > 0 (already ran this iteration). This avoids
+        routing on the accumulated follow_up_queries list, which contains
+        queries from all prior iterations.
+        """
         follow_up_round = state.get("follow_up_round", 0)
-        # Only follow up if we have queries and haven't already done a follow-up
-        if follow_ups and follow_up_round <= 1:
+        # gap_analyzer returns follow_up_round=1 when queries produced,
+        # and [] when follow_up_round > 0 (duplicate guard).
+        # The plan node resets follow_up_round=0 each iteration.
+        # Route to follow-up only when gap_analyzer just produced queries.
+        if follow_up_round == 1 and state.get("follow_up_queries", []):
             return "search_followup"
         return "adapt_synthesis"
 

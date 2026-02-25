@@ -246,3 +246,30 @@ class TestGapAnalysisGraphWiring:
         hints = typing.get_type_hints(ResearchState, include_extras=True)
         assert "follow_up_queries" in hints
         assert "follow_up_round" in hints
+
+
+class TestS11FollowUpRouting:
+    """S11 regression: should_follow_up must not route on stale accumulated queries."""
+
+    def test_routing_source_uses_follow_up_round(self):
+        """should_follow_up must gate on follow_up_round, not accumulated list size."""
+        import inspect
+
+        from deep_research_swarm.graph.builder import build_graph
+
+        source = inspect.getsource(build_graph)
+        # The routing function should check follow_up_round == 1
+        assert "follow_up_round == 1" in source
+
+
+class TestS15FollowUpDedup:
+    """S15 regression: search_followup_node must not re-search old queries."""
+
+    def test_search_followup_filters_existing(self):
+        """search_followup_node source must deduplicate against search_results."""
+        import inspect
+
+        from deep_research_swarm.graph.builder import build_graph
+
+        source = inspect.getsource(build_graph)
+        assert "existing_query_ids" in source

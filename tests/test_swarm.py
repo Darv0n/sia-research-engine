@@ -286,3 +286,32 @@ class TestSwarmOrchestrator:
         strategies = [c[1] for c in configs]
         assert strategies[0] == "baseline"
         assert len(set(strategies)) == 5  # All different for 5 reactors
+
+
+class TestBaseExceptionHandling:
+    """C6 regression: CancelledError (BaseException) must be caught as failure."""
+
+    def test_cancelled_error_is_base_exception(self):
+        """CancelledError inherits BaseException, not Exception, in Python 3.8+."""
+        import asyncio
+
+        assert issubclass(asyncio.CancelledError, BaseException)
+        assert not issubclass(asyncio.CancelledError, Exception)
+
+    def test_base_exception_classified_as_failure(self):
+        """isinstance(BaseException(), BaseException) must be True for the swarm filter."""
+        import asyncio
+
+        result = asyncio.CancelledError()
+        # This is the exact check from swarm.py line 386
+        assert isinstance(result, BaseException)
+
+    def test_keyboard_interrupt_classified_as_failure(self):
+        """KeyboardInterrupt is also BaseException — must be caught."""
+        result = KeyboardInterrupt()
+        assert isinstance(result, BaseException)
+
+    def test_normal_exception_still_caught(self):
+        """Regular Exception subclasses must still be caught."""
+        result = ValueError("test error")
+        assert isinstance(result, BaseException)

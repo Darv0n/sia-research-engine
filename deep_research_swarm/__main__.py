@@ -770,6 +770,9 @@ async def run(args: argparse.Namespace) -> None:
     if args.no_sia:
         settings = dataclasses.replace(settings, sia_enabled=False)
     swarm_n = args.swarm
+    if swarm_n >= 2 and not settings.swarm_enabled:
+        print("WARNING: SWARM_ENABLED=false in config. Swarm disabled.", file=sys.stderr)
+        swarm_n = 0
     if swarm_n == 1:
         print("WARNING: --swarm requires N >= 2 for cross-validation. Disabled.", file=sys.stderr)
         swarm_n = 0

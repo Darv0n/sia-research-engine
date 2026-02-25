@@ -751,6 +751,35 @@ class TestSynthesizerReactorRouting:
 
         assert callable(_run_reactor)
 
+    def test_run_reactor_unpacks_call_tuple(self):
+        """C1 regression: caller.call() returns (str, TokenUsage), not a response object."""
+        import ast
+        import inspect
+
+        from deep_research_swarm.agents.synthesizer import _run_reactor
+
+        source = inspect.getsource(_run_reactor)
+        tree = ast.parse(source)
+        # Find the call assignment — must be a Tuple unpack, not a single Name
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Assign):
+                # Look for the reactor_caller.call() assignment
+                if isinstance(node.value, ast.Await):
+                    call = node.value.value
+                    if isinstance(call, ast.Call):
+                        func = call.func
+                        if isinstance(func, ast.Attribute) and func.attr == "call":
+                            # Target must be a Tuple (unpacking), not a single Name
+                            target = node.targets[0]
+                            assert isinstance(target, ast.Tuple), (
+                                "reactor_caller.call() must be unpacked as "
+                                "'raw_output, usage = await ...', not assigned to a single var"
+                            )
+                            assert len(target.elts) == 2
+                            return
+        # If we get here, we didn't find the call at all
+        raise AssertionError("Could not find reactor_caller.call() in _run_reactor source")
+
     def test_build_prior_summary_empty(self):
         from deep_research_swarm.agents.synthesizer import _build_prior_summary
 
@@ -767,3 +796,219 @@ class TestSynthesizerReactorRouting:
         result = _build_prior_summary(conversation)
         assert "Analysis" in result
         assert "Turn 1" in result
+
+
+class TestS8NestedJsonParsing:
+    """S8 regression: _try_json_parse must handle nested JSON objects."""
+
+    def _make_kernel(self):
+        from deep_research_swarm.sia.kernel import SIAKernel
+
+        return SIAKernel()
+
+    def test_flat_json(self):
+        kernel = self._make_kernel()
+        result = kernel._try_json_parse('{"key": "value"}')
+        assert result == {"key": "value"}
+
+    def test_nested_json(self):
+        kernel = self._make_kernel()
+        text = '{"constraints": ["a", "b"], "nested": {"inner": true}}'
+        result = kernel._try_json_parse(text)
+        assert result is not None
+        assert result["constraints"] == ["a", "b"]
+        assert result["nested"]["inner"] is True
+
+    def test_json_embedded_in_text(self):
+        kernel = self._make_kernel()
+        text = 'Here is my analysis:\n{"constraints": ["x"], "challenges": []}\nEnd.'
+        result = kernel._try_json_parse(text)
+        assert result is not None
+        assert result["constraints"] == ["x"]
+
+    def test_deeply_nested_json(self):
+        kernel = self._make_kernel()
+        text = '{"a": {"b": {"c": [1, 2, 3]}}}'
+        result = kernel._try_json_parse(text)
+        assert result is not None
+        assert result["a"]["b"]["c"] == [1, 2, 3]
+
+
+class TestS9SectionExtraction:
+    """S9 regression: _extract_section must handle non-bullet content."""
+
+    def _make_kernel(self):
+        from deep_research_swarm.sia.kernel import SIAKernel
+
+        return SIAKernel()
+
+    def test_bullet_items(self):
+        kernel = self._make_kernel()
+        text = "Constraints:\n- First item\n- Second item\n"
+        result = kernel._extract_section(text, "Constraints")
+        assert "First item" in result
+        assert "Second item" in result
+
+    def test_numbered_items(self):
+        kernel = self._make_kernel()
+        text = "Constraints:\n1. First item\n2. Second item\n"
+        result = kernel._extract_section(text, "Constraints")
+        assert "First item" in result
+        assert "Second item" in result
+
+    def test_star_bullet_items(self):
+        kernel = self._make_kernel()
+        text = "Challenges:\n* Alpha challenge\n* Beta challenge\n"
+        result = kernel._extract_section(text, "Challenges")
+        assert "Alpha challenge" in result
+        assert "Beta challenge" in result
+
+
+class TestS14WildcardCovenantBonus:
+    """S14 regression: Wildcard covenants must not give uniform score bonus."""
+
+    def test_wildcard_covenant_no_bonus(self):
+        """Covenants with agent_b='*' should not add score."""
+        from deep_research_swarm.sia.covenants import get_covenant
+
+        # Johan has a wildcard covenant (johan, *)
+        cov = get_covenant("johan", "rick")
+        assert cov is not None
+        # The wildcard means agent_a or agent_b is "*"
+        assert cov.agent_a == "*" or cov.agent_b == "*"
+
+    def test_pairwise_covenant_exists(self):
+        """Explicit pairwise covenants should exist and not be wildcards."""
+        from deep_research_swarm.sia.covenants import get_covenant
+
+        # Lawliet-Light is an explicit pair
+        cov = get_covenant("lawliet", "light")
+        assert cov is not None
+        assert cov.agent_a != "*" and cov.agent_b != "*"
+
+    def test_kernel_scoring_skips_wildcards(self):
+        """_score_candidate source must check for wildcard covenants."""
+        import inspect
+
+        from deep_research_swarm.sia.kernel import SIAKernel
+
+        source = inspect.getsource(SIAKernel._score_candidate)
+        assert '"*"' in source
+
+
+# ============================================================
+# M2: Unresolved tracking
+# ============================================================
+
+
+class TestM2UnresolvedTracking:
+    """M2 regression: kernel must populate _unresolved from challenges."""
+
+    def test_challenges_populate_unresolved(self):
+        from deep_research_swarm.sia.kernel import SIAKernel
+
+        kernel = SIAKernel()
+        record = {
+            "turn": 0,
+            "agent": "lawliet",
+            "int_type": "B",
+            "constraints": [],
+            "challenges": ["Missing evidence for claim X"],
+            "reframes": [],
+            "response_to_prior": [],
+            "raw_output": "",
+        }
+        kernel.update_state(record)
+        assert len(kernel._unresolved) == 1
+        assert "Missing evidence for claim X" in kernel._unresolved
+
+    def test_resolved_challenges_removed(self):
+        from deep_research_swarm.sia.kernel import SIAKernel
+
+        kernel = SIAKernel()
+        # Turn 1: challenge raised
+        kernel.update_state(
+            {
+                "turn": 0,
+                "agent": "rick",
+                "int_type": "C",
+                "constraints": [],
+                "challenges": ["Weak grounding for hypothesis"],
+                "reframes": [],
+                "response_to_prior": [],
+                "raw_output": "",
+            }
+        )
+        assert "Weak grounding for hypothesis" in kernel._unresolved
+        # Turn 2: constraint resolves the challenge
+        kernel.update_state(
+            {
+                "turn": 1,
+                "agent": "lawliet",
+                "int_type": "B",
+                "constraints": ["Weak grounding for hypothesis"],
+                "challenges": [],
+                "reframes": [],
+                "response_to_prior": [],
+                "raw_output": "",
+            }
+        )
+        assert "Weak grounding for hypothesis" not in kernel._unresolved
+
+    def test_unresolved_count_in_frame(self):
+        from deep_research_swarm.sia.kernel import SIAKernel
+
+        kernel = SIAKernel()
+        kernel.update_state(
+            {
+                "turn": 0,
+                "agent": "rick",
+                "int_type": "C",
+                "constraints": [],
+                "challenges": ["Gap A", "Gap B"],
+                "reframes": [],
+                "response_to_prior": [],
+                "raw_output": "",
+            }
+        )
+        assert len(kernel._unresolved) == 2
+
+
+# ============================================================
+# M3: Dead field removed
+# ============================================================
+
+
+class TestM3NoKeyClaimsField:
+    """M3 regression: _key_claims field must not exist on SIAKernel."""
+
+    def test_no_key_claims_attribute(self):
+        from deep_research_swarm.sia.kernel import SIAKernel
+
+        kernel = SIAKernel()
+        assert not hasattr(kernel, "_key_claims")
+
+
+# ============================================================
+# M4: Ignition patterns use constant
+# ============================================================
+
+
+class TestM4IgnitionPatternConstant:
+    """M4 regression: _select_ignition_pattern must reference VALID_IGNITION_PATTERNS."""
+
+    def test_ignition_uses_constant(self):
+        import inspect
+
+        from deep_research_swarm.sia.kernel import SIAKernel
+
+        source = inspect.getsource(SIAKernel._select_ignition_pattern)
+        assert "VALID_IGNITION_PATTERNS" in source
+
+    def test_ignition_returns_valid_patterns(self):
+        from deep_research_swarm.sia.kernel import VALID_IGNITION_PATTERNS, SIAKernel
+
+        for band in ("runaway", "turbulence", "crystalline", "convergence"):
+            kernel = SIAKernel(entropy_band=band)
+            pattern = kernel._select_ignition_pattern()
+            assert pattern in VALID_IGNITION_PATTERNS

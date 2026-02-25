@@ -49,6 +49,7 @@ def authority_judge(
         }
     """
     source_credibility: dict[str, float] = {}
+    url_authority_level: dict[str, str] = {}  # cache level per URL
     authority_counts: dict[str, int] = {}
 
     for doc in scored_documents:
@@ -58,6 +59,7 @@ def authority_judge(
             _auth, score = score_authority(url, scholarly_metadata=scholarly)
             source_credibility[url] = score
             level = _auth.value if hasattr(_auth, "value") else str(_auth)
+            url_authority_level[url] = level
             authority_counts[level] = authority_counts.get(level, 0) + 1
 
     # Build authority profile from aggregate
@@ -81,14 +83,7 @@ def authority_judge(
     for passage in source_passages:
         url = passage.get("source_url", "")
         auth_score = source_credibility.get(url, 0.4)
-        scholarly = None
-        # Find matching doc for scholarly metadata
-        for doc in scored_documents:
-            if doc.get("url") == url:
-                scholarly = doc.get("scholarly_metadata")
-                break
-        _auth, _ = score_authority(url, scholarly_metadata=scholarly)
-        level = _auth.value if hasattr(_auth, "value") else str(_auth)
+        level = url_authority_level.get(url, "unknown")
         partial_verdicts.append(
             {
                 "passage_id": passage.get("id", ""),
@@ -273,7 +268,7 @@ def coverage_judge(
     # Generate facets from sub-queries (each unique query topic = one facet)
     facets: list[Facet] = []
     seen_topics: set[str] = set()
-    for i, sq in enumerate(sub_queries):
+    for sq in sub_queries:
         q = sq.get("question", sq.get("query", ""))
         if q and q.lower() not in seen_topics:
             seen_topics.add(q.lower())
@@ -304,7 +299,11 @@ def coverage_judge(
             if overlap >= max(1, len(facet_terms) // 3):
                 matches += 1
 
-        coverage = min(1.0, matches / max(3, len(scored_documents) // len(facets) if facets else 1))
+        # Denominator: expected matches per facet, bounded [3, 10]
+        # Floor 3 prevents inflation; ceiling 10 prevents deflation with many docs
+        raw_expected = len(scored_documents) // max(len(facets), 1)
+        expected_matches = max(3, min(10, raw_expected))
+        coverage = min(1.0, matches / expected_matches)
         facet_coverage[facet["id"]] = round(coverage, 4)
 
     # Compute diversity if not provided
@@ -347,7 +346,7 @@ def coverage_judge(
             {
                 "id": f"sq-wave-{qid}",
                 "question": facet_q,
-                "backends": ["searxng"],
+                "search_backends": ["searxng"],
             }
         )
 

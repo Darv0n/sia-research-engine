@@ -977,6 +977,54 @@ class TestGraphIntegration:
         assert "alternative_frames" in fields
         assert "recommendation" in fields
 
+
+# ============================================================
+# C7 Regression: refine_targeted vs replan separation
+# ============================================================
+
+
+class TestRefineVsReplan:
+    """C7 regression: refine_targeted must NOT trigger full pipeline replan."""
+
+    def test_refine_targeted_does_not_set_has_replan(self):
+        """refine_targeted is a separate flag from replan."""
+        import inspect
+
+        from deep_research_swarm.sia.adversarial_critique import adversarial_critique
+
+        source = inspect.getsource(adversarial_critique)
+        # The old bug: rec in ("replan", "refine_targeted"): has_replan = True
+        assert 'rec in ("replan", "refine_targeted")' not in source
+        # The fix: separate handling
+        assert 'rec == "replan"' in source
+        assert 'rec == "refine_targeted"' in source
+
+    def test_light_not_activated_by_refine_targeted(self):
+        """Light agent activates on replan, NOT on refine_targeted."""
+        assert _should_activate_agent("light", 0.30, has_replan_recommendation=True) is True
+        assert _should_activate_agent("light", 0.30, has_replan_recommendation=False) is False
+
+    def test_has_refine_targeted_flag_exists(self):
+        """adversarial_critique must track refine_targeted separately."""
+        import inspect
+
+        from deep_research_swarm.sia.adversarial_critique import adversarial_critique
+
+        source = inspect.getsource(adversarial_critique)
+        assert "has_refine_targeted" in source
+
+    def test_final_rec_prefers_replan_over_refine(self):
+        """When both replan and refine_targeted are set, replan wins."""
+        import inspect
+
+        from deep_research_swarm.sia.adversarial_critique import adversarial_critique
+
+        source = inspect.getsource(adversarial_critique)
+        # replan check must come before refine_targeted in final_rec logic
+        replan_pos = source.index("has_replan:")
+        refine_pos = source.index("has_refine_targeted:")
+        assert replan_pos < refine_pos, "replan should be checked before refine_targeted"
+
     def test_adversarial_finding_contract(self):
         """AdversarialFinding has all expected fields."""
         fields = AdversarialFinding.__annotations__
@@ -987,3 +1035,88 @@ class TestGraphIntegration:
         assert "severity" in fields
         assert "actionable" in fields
         assert "response_to" in fields
+
+
+class TestS4ScoreAdjustmentFieldPreservation:
+    """S4 regression: _apply_score_adjustments must preserve NotRequired fields."""
+
+    def test_preserves_grounding_score(self):
+        from deep_research_swarm.sia.adversarial_critique import _apply_score_adjustments
+
+        sections = [
+            SectionDraft(
+                id="sec-1",
+                heading="Test",
+                content="content",
+                citation_ids=["[1]"],
+                confidence_score=0.8,
+                confidence_level=Confidence.HIGH,
+                grader_scores={"relevance": 0.9, "depth": 0.8, "specificity": 0.7},
+                grounding_score=0.85,
+            )
+        ]
+        findings = [
+            AdversarialFinding(
+                agent="makishima",
+                int_type="C",
+                target_section="sec-1",
+                finding="test",
+                severity="minor",
+                actionable=True,
+                response_to="",
+            )
+        ]
+        result = _apply_score_adjustments(sections, findings)
+        assert "grounding_score" in result[0]
+        assert result[0]["grounding_score"] == 0.85
+
+    def test_preserves_claim_details(self):
+        from deep_research_swarm.sia.adversarial_critique import _apply_score_adjustments
+
+        sections = [
+            SectionDraft(
+                id="sec-1",
+                heading="Test",
+                content="content",
+                citation_ids=["[1]"],
+                confidence_score=0.8,
+                confidence_level=Confidence.HIGH,
+                grader_scores={"relevance": 0.9, "depth": 0.8, "specificity": 0.7},
+                claim_details=[{"claim": "test claim", "grounded": True}],
+            )
+        ]
+        result = _apply_score_adjustments(sections, [])
+        assert "claim_details" in result[0]
+        assert len(result[0]["claim_details"]) == 1
+
+
+class TestS19BudgetCheckIncludesCritiqueTokens:
+    """S19 regression: Budget check must include tokens consumed by critique."""
+
+    def test_budget_check_source_uses_effective_total(self):
+        """adversarial_critique must add critique tokens to budget check."""
+        import inspect
+
+        from deep_research_swarm.sia import adversarial_critique
+
+        source = inspect.getsource(adversarial_critique.adversarial_critique)
+        # Must compute effective_total from all_usages
+        assert "effective_total" in source
+        assert "critique_tokens" in source
+
+
+class TestM1BudgetTokenFields:
+    """M1 regression: budget check must use input_tokens + output_tokens, not total_tokens."""
+
+    def test_critique_tokens_uses_correct_fields(self):
+        """critique_tokens must sum input_tokens + output_tokens, not total_tokens."""
+        import inspect
+
+        from deep_research_swarm.sia import adversarial_critique
+
+        source = inspect.getsource(adversarial_critique.adversarial_critique)
+        # Must NOT reference total_tokens (field doesn't exist in TokenUsage)
+        assert 'u.get("total_tokens"' not in source
+        # Must use input_tokens + output_tokens
+        assert "input_tokens" in source
+        assert "output_tokens" in source

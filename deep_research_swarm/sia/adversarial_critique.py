@@ -221,17 +221,12 @@ def _apply_score_adjustments(
         adj = section_adjustments.get(sec["id"], 0.0)
         new_score = max(0.0, min(1.0, sec["confidence_score"] + adj))
 
-        updated.append(
-            SectionDraft(
-                id=sec["id"],
-                heading=sec["heading"],
-                content=sec["content"],
-                citation_ids=sec["citation_ids"],
-                confidence_score=round(new_score, 4),
-                confidence_level=classify_confidence(new_score),
-                grader_scores=sec["grader_scores"],
-            )
-        )
+        # Copy all existing fields (including NotRequired like grounding_score,
+        # claim_details) then override only confidence fields
+        adjusted = dict(sec)
+        adjusted["confidence_score"] = round(new_score, 4)
+        adjusted["confidence_level"] = classify_confidence(new_score)
+        updated.append(adjusted)  # type: ignore[arg-type]
 
     return updated
 
@@ -285,6 +280,7 @@ async def adversarial_critique(
     all_alt_frames: list[str] = []
     all_usages: list[dict] = []
     has_replan = False
+    has_refine_targeted = False
     turns_executed = 0
 
     for agent_id, required in CRITIQUE_SEQUENCE:
@@ -352,10 +348,12 @@ async def adversarial_critique(
             if af and af not in all_alt_frames:
                 all_alt_frames.append(af)
 
-        # Check for replan recommendation
+        # Check for replan/refine recommendation
         rec = parsed.get("recommendation", "converge")
-        if rec in ("replan", "refine_targeted"):
+        if rec == "replan":
             has_replan = True
+        elif rec == "refine_targeted":
+            has_refine_targeted = True
 
         # Add to conversation thread
         finding_summary = "; ".join(f.get("finding", "")[:100] for f in parsed.get("findings", []))
@@ -375,7 +373,8 @@ async def adversarial_critique(
         updated_sections, prev_avg=prev_avg, delta_threshold=convergence_threshold
     )
 
-    # Override: if adversarial critique recommends replan
+    # Override: only a full replan recommendation forces re-iteration
+    # refine_targeted does NOT trigger replan — it's handled via final_rec
     if has_replan and not replan:
         replan = True
         reason = "adversarial_replan_recommended"
@@ -387,18 +386,23 @@ async def adversarial_critique(
 
     _snap = state.get("tunable_snapshot", {})
     budget_exhaust_pct = _snap.get("budget_exhaustion_pct", 0.9)
-    if total_tokens > token_budget * budget_exhaust_pct:
+    # Include tokens consumed by the critique itself (not just pre-critique count)
+    critique_tokens = sum(u.get("input_tokens", 0) + u.get("output_tokens", 0) for u in all_usages)
+    effective_total = total_tokens + critique_tokens
+    if effective_total > token_budget * budget_exhaust_pct:
         replan = False
-        reason = f"budget_nearly_exhausted ({total_tokens}/{token_budget})"
+        reason = f"budget_nearly_exhausted ({effective_total}/{token_budget})"
 
     converged = not replan
 
     # Determine final recommendation
     critical_count = sum(1 for f in all_findings if f["severity"] == "critical")
-    if critical_count > 0 and converged:
-        final_rec = "refine_targeted"
-    elif has_replan:
+    if has_replan:
         final_rec = "replan"
+    elif critical_count > 0 and converged:
+        final_rec = "refine_targeted"
+    elif has_refine_targeted:
+        final_rec = "refine_targeted"
     else:
         final_rec = "converge"
 

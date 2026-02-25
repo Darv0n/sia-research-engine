@@ -16,6 +16,7 @@ from deep_research_swarm.contracts import (
     ActiveTension,
     ClaimVerdict,
     CoverageMap,
+    Facet,
     JudgmentContext,
     SubQuery,
 )
@@ -49,6 +50,7 @@ def merge_judgments(
         },
     )
     next_queries = coverage_output.get("next_wave_queries", [])
+    facets: list[Facet] = coverage_output.get("facets", [])
 
     # --- Cross-reference: authority x grounding -> full ClaimVerdict ---
     # Build authority lookup by passage_id
@@ -67,10 +69,11 @@ def merge_judgments(
 
     # Merge into full ClaimVerdicts
     claim_verdicts: list[ClaimVerdict] = []
-    contradicted_claims = _extract_contradicted_claim_ids(tensions)
+    contradicted_by_text = _extract_contradicted_claim_texts(tensions)
 
     for gv in grounding_verdicts:
         claim_id = gv.get("claim_id", "")
+        claim_text = gv.get("claim_text", "").strip().lower()
         # Find authority data from linked passages
         linked_passages = claim_to_passages.get(claim_id, [])
         auth_score = 0.0
@@ -82,8 +85,9 @@ def merge_judgments(
                 auth_score = s
                 auth_level = auth.get("authority_level", "unknown")
 
-        is_contradicted = claim_id in contradicted_claims
-        contradiction_id = contradicted_claims.get(claim_id) if is_contradicted else None
+        # Match contradictions by claim text (IDs are from different namespaces)
+        is_contradicted = claim_text in contradicted_by_text
+        contradiction_id = contradicted_by_text.get(claim_text) if is_contradicted else None
 
         verdict = ClaimVerdict(
             claim_id=claim_id,
@@ -120,11 +124,14 @@ def merge_judgments(
             SubQuery(
                 id=q.get("id", ""),
                 question=q.get("question", ""),
-                backends=q.get("backends", ["searxng"]),
+                perspective="coverage_gap",
+                priority=3,
+                parent_query_id=None,
+                search_backends=q.get("search_backends", q.get("backends", ["searxng"])),
             )
         )
 
-    return JudgmentContext(
+    jc = JudgmentContext(
         claim_verdicts=claim_verdicts,
         source_credibility=source_credibility,
         active_tensions=annotated_tensions,
@@ -133,22 +140,33 @@ def merge_judgments(
         overall_coverage=round(overall_coverage, 4),
         structural_risks=structural_risks,
         wave_number=wave_number,
+        facets=facets,
     )
+    # Thread passage_to_claims for downstream cluster-claim linkage (S21)
+    if passage_to_claims:
+        jc["passage_to_claims"] = passage_to_claims
+    return jc
 
 
-def _extract_contradicted_claim_ids(
+def _extract_contradicted_claim_texts(
     tensions: list[ActiveTension],
 ) -> dict[str, str]:
-    """Build {claim_id: tension_id} for claims involved in contradictions."""
+    """Build {claim_text_lower: tension_id} for claims involved in contradictions.
+
+    Uses claim text (not claim IDs) for cross-referencing because the contradiction
+    judge and grounding judge generate IDs from different namespaces.
+    """
     result: dict[str, str] = {}
     for t in tensions:
         tid = t.get("id", "")
         claim_a = t.get("claim_a", {})
         claim_b = t.get("claim_b", {})
-        if claim_a.get("claim_id"):
-            result[claim_a["claim_id"]] = tid
-        if claim_b.get("claim_id"):
-            result[claim_b["claim_id"]] = tid
+        text_a = claim_a.get("claim_text", "").strip().lower()
+        text_b = claim_b.get("claim_text", "").strip().lower()
+        if text_a:
+            result[text_a] = tid
+        if text_b:
+            result[text_b] = tid
     return result
 
 
