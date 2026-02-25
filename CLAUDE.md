@@ -3,7 +3,7 @@
 ## Current State
 
 - **Version**: V10 (SIA Tensegrity — multi-agent deliberation, thermodynamic entropy control, structured evidence pipeline, adversarial critique, multi-reactor swarm)
-- **Tests**: 1166 passing (run with `.venv/Scripts/python.exe -m pytest tests/ -v`)
+- **Tests**: 1248 passing (run with `.venv/Scripts/python.exe -m pytest tests/ -v`)
 - **Repo**: https://github.com/Darv0n/sia-research-engine.git
 - **Lineage**: Evolved from [deep-research-swarm](https://github.com/Darv0n/deep-research-swarm) (V1-V9, archived)
 
@@ -252,7 +252,7 @@ PassageCluster, CrossClusterTension, CoverageMap, KnowledgeArtifact, SwarmMetada
 ## Testing
 
 ```bash
-.venv/Scripts/python.exe -m pytest tests/ -v                    # All 1166 tests
+.venv/Scripts/python.exe -m pytest tests/ -v                    # All 1248 tests
 .venv/Scripts/python.exe -m pytest tests/ -k "not integration"  # Unit only
 .venv/Scripts/python.exe -m ruff check . && .venv/Scripts/python.exe -m ruff format --check .
 ```
