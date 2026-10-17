@@ -1,0 +1,79 @@
+language: "en-US"
+tone_instructions: "Be direct and actionable. Flag blocking issues prominently. This is a multi-agent research pipeline — state integrity is paramount."
+
+reviews:
+  profile: "assertive"
+  request_changes_workflow: false
+  high_level_summary: true
+  sequence_diagrams: true
+  poem: false
+
+  path_filters:
+    - "!**/*.lock"
+    - "!**/__pycache__/**"
+    - "!**/dist/**"
+    - "!**/build/**"
+    - "!**/coverage/**"
+    - "!**/*.egg-info/**"
+    - "!**/SIA AGENTS/**"
+
+  path_instructions:
+    - path: "deep_research_swarm/graph/**"
+      instructions: |
+        CRITICAL — State definition and graph builder.
+        State schema changes affect every node in the pipeline.
+        Verify TypedDict annotations are complete.
+        Check that new state fields have sensible defaults.
+    - path: "deep_research_swarm/agents/**"
+      instructions: |
+        Core agent nodes. Each agent reads/writes specific state fields.
+        Verify agents only mutate their declared output fields.
+        Check for proper error handling — agents should degrade gracefully, not crash the graph.
+    - path: "deep_research_swarm/backends/**"
+      instructions: |
+        Search backends (SearXNG, Exa, Tavily, OpenAlex, etc.).
+        Must follow the common backend interface.
+        Check for proper rate limiting and error handling on external API calls.
+        No hardcoded API keys.
+    - path: "deep_research_swarm/scoring/**"
+      instructions: |
+        Document scoring pipeline — authority, grounding, embedding, claim graphs.
+        Scores must be deterministic given the same inputs.
+        Check for proper normalization (0-1 range).
+    - path: "deep_research_swarm/sia/**"
+      instructions: |
+        SIA deliberation layer — judges, entropy, kernel, reactors.
+        Check convergence logic and singularity prevention.
+        Verify entropy calculations are numerically stable.
+    - path: "deep_research_swarm/compress/**"
+      instructions: |
+        Knowledge artifact compression. Check for information loss.
+        Claim verification must preserve source attribution.
+    - path: "deep_research_swarm/reporting/**"
+      instructions: |
+        Report generation and export. Check citation integrity.
+        Markdown output must be valid. DOCX/PDF generation paths should be tested.
+    - path: "tests/**"
+      instructions: |
+        Mock data allowed. Check for meaningful assertions.
+        Integration tests should verify state propagation across nodes.
+        Checkpoint tests must verify deterministic resume.
+
+  auto_review:
+    enabled: true
+    auto_incremental_review: true
+    drafts: false
+    ignore_title_keywords:
+      - "[skip-review]"
+      - "WIP"
+
+  tools:
+    ruff:
+      enabled: true
+    gitleaks:
+      enabled: true
+    shellcheck:
+      enabled: true
+
+chat:
+  auto_reply: true
